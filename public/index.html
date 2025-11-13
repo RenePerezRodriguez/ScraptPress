@@ -1,0 +1,70 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScraptPress - Búsqueda de Vehículos</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <main>
+    <!-- Hero Search Section -->
+    <section class="hero-search-section">
+      <div class="search-container">
+        <h1>Encuentra tu vehículo y te asesoramos en la compra</h1>
+        <form id="search-form">
+          <div class="search-input-wrapper">
+            <input type="text" id="query" name="query" placeholder="Busca por marca, modelo o palabra clave..." required>
+            <input type="number" id="count" name="count" placeholder="Cantidad por página" min="1" max="20" value="12">
+            <button type="submit" id="submit-btn">
+              <span class="btn-text">Buscar</span>
+              <span class="btn-loading hidden">🔄</span>
+            </button>
+          </div>
+        </form>
+        <p class="search-subtitle">Busca en nuestro inventario y en los principales portales de subastas de EE. UU.</p>
+      </div>
+    </section>
+
+    <!-- Search Status Section -->
+    <div id="search-status">
+      <div id="loading-indicator" class="hidden">
+        <div class="loading-spinner"></div>
+        <p>Buscando vehículos... Esto puede tomar unos momentos.</p>
+      </div>
+      <div id="search-results-summary" class="hidden"></div>
+    </div>
+
+    <!-- Results Section -->
+    <section class="results-section">
+      <div id="results-header" class="hidden">
+        <h2>Resultados de la Búsqueda</h2>
+        <div id="results-stats"></div>
+      </div>
+      <div id="vehicles-list-container"></div>
+      
+      <!-- Pagination Controls -->
+      <div id="pagination-controls" class="hidden">
+        <div class="pagination-container">
+          <button id="prev-page-btn" class="pagination-btn" onclick="previousPage()">← Anterior</button>
+          <div id="pagination-info" class="pagination-info">Página 1</div>
+          <button id="next-page-btn" class="pagination-btn" onclick="nextPage()">Siguiente →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Vehicle Detail Modal -->
+    <div id="vehicle-modal" class="modal hidden">
+      <div class="modal-content">
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

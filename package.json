@@ -1,0 +1,71 @@
+{
+  "name": "scraptpress",
+  "version": "1.1.0",
+  "description": "Professional Copart vehicle scraper API with Firebase Firestore, anti-bot detection, and Cloud Run optimization",
+  "main": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RenePerezRodriguez/ScraptPress.git"
+  },
+  "author": "Rene Perez Rodriguez",
+  "license": "ISC",
+  "keywords": [
+    "copart",
+    "scraper",
+    "vehicles",
+    "api",
+    "playwright",
+    "firestore",
+    "firebase",
+    "typescript",
+    "express",
+    "cloud-run"
+  ],
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "nodemon",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "echo 'No linter configured yet'",
+    "clean": "rm -rf dist",
+    "deploy": "npm run build && gcloud run deploy",
+    "postinstall": "npx playwright install chromium --with-deps"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "@sentry/node": "^10.25.0",
+    "@sentry/profiling-node": "^10.25.0",
+    "axios": "^1.13.2",
+    "bull": "^4.16.5",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "firebase-admin": "^13.6.0",
+    "helmet": "^7.1.0",
+    "playwright": "^1.56.1",
+    "redis": "^5.9.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bull": "^3.15.9",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.5",
+    "@types/jest": "^30.0.0",
+    "@types/pg": "^8.15.6",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.2.0",
+    "mongodb-memory-server": "^10.3.0",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

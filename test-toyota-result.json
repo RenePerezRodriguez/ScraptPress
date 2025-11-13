@@ -1,0 +1,85 @@
+﻿{
+    "success":  true,
+    "source":  "firestore",
+    "cached":  true,
+    "fresh":  false,
+    "query":  "toyota",
+    "page":  1,
+    "limit":  3,
+    "returned":  3,
+    "total":  20,
+    "totalPages":  7,
+    "hasMore":  true,
+    "vehicles":  [
+                     {
+                         "lot_number":  "86162485",
+                         "make":  "TOYOTA",
+                         "vehicle_model":  "COROLLA",
+                         "year":  "2023",
+                         "vin":  "5YFB4MDE2PP******",
+                         "auction_date":  "2025-11-13T17:00:00.000Z",
+                         "sale_status":  "Minimum Bid",
+                         "location":  "FL - MIAMI SOUTH",
+                         "primary_damage":  "MINOR DENT/SCRATCHES",
+                         "secondary_damage":  "N/A",
+                         "odometer":  "19271 ",
+                         "estimated_retail_value":  "N/A",
+                         "current_bid":  "$30",
+                         "imageUrl":  "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1025/0213c7398d374d4b866c4a5f2f884357_ful.jpg",
+                         "images_gallery":  [
+
+                                            ],
+                         "engine_video":  "N/A",
+                         "highlights":  [
+
+                                        ]
+                     },
+                     {
+                         "lot_number":  "84653035",
+                         "make":  "TOYOTA",
+                         "vehicle_model":  "RAV4",
+                         "year":  "2024",
+                         "vin":  "2T3RWRFV4RW******",
+                         "auction_date":  "2025-11-13T17:00:00.000Z",
+                         "sale_status":  "On Approval",
+                         "location":  "FL - MIAMI SOUTH",
+                         "primary_damage":  "NORMAL WEAR",
+                         "secondary_damage":  "N/A",
+                         "odometer":  "24060 ",
+                         "estimated_retail_value":  "N/A",
+                         "current_bid":  "$A",
+                         "imageUrl":  "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1025/e451826c6aa14111a89bb883bfbca440_ful.jpg",
+                         "images_gallery":  [
+
+                                            ],
+                         "engine_video":  "N/A",
+                         "highlights":  [
+
+                                        ]
+                     },
+                     {
+                         "lot_number":  "85758585",
+                         "make":  "TOYOTA",
+                         "vehicle_model":  "RAV4",
+                         "year":  "2024",
+                         "vin":  "2T3G1RFV9RC******",
+                         "auction_date":  "2025-11-13T17:00:00.000Z",
+                         "sale_status":  "Minimum Bid",
+                         "location":  "FL - MIAMI SOUTH",
+                         "primary_damage":  "MINOR DENT/SCRATCHES",
+                         "secondary_damage":  "N/A",
+                         "odometer":  "25313 ",
+                         "estimated_retail_value":  "N/A",
+                         "current_bid":  "$A",
+                         "imageUrl":  "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1025/7d281714074548a3b663834d73493697_ful.jpg",
+                         "images_gallery":  [
+
+                                            ],
+                         "engine_video":  "N/A",
+                         "highlights":  [
+
+                                        ]
+                     }
+                 ],
+    "timestamp":  "2025-11-13T02:14:40.432Z"
+}

@@ -1,0 +1,127 @@
+﻿{
+    "success":  true,
+    "source":  "copart",
+    "cached":  false,
+    "fresh":  true,
+    "query":  "toyota camry",
+    "page":  1,
+    "limit":  2,
+    "returned":  2,
+    "total":  20,
+    "totalPages":  10,
+    "hasMore":  true,
+    "vehicles":  [
+                     {
+                         "lot_number":  "89659405",
+                         "vin":  "4T1K31AK2PU******",
+                         "year":  "2023",
+                         "make":  "TOYOTA",
+                         "model":  "CAMRY",
+                         "trim":  "N/A",
+                         "body_style":  "N/A",
+                         "odometer":  "75786 ",
+                         "odometer_status":  "N/A",
+                         "engine":  "2.5L  4",
+                         "cylinders":  "4",
+                         "transmission":  "N/A",
+                         "drive":  "Front-wheel Drive",
+                         "fuel":  "HYBRID ENGINE",
+                         "exterior_color":  "WHITE",
+                         "interior_color":  "N/A",
+                         "doc_type":  "NW",
+                         "title_type":  "CERTIFICATE OF TITLE",
+                         "has_keys":  "Yes",
+                         "primary_damage":  "NORMAL WEAR",
+                         "secondary_damage":  "N/A",
+                         "sale_status":  "Minimum Bid",
+                         "current_bid":  "$9900",
+                         "buy_it_now_price":  "N/A",
+                         "estimated_retail_value":  "N/A",
+                         "location":  "CA - VAN NUYS",
+                         "auction_date":  "2025-11-13T17:00:00.000Z",
+                         "imageUrl":  "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1025/054c1f5051544eef8c1ffdede8262bd3_ful.jpg",
+                         "images_gallery":  [
+
+                                            ],
+                         "images":  [
+
+                                    ],
+                         "image_count":  0,
+                         "engine_video":  "N/A",
+                         "highlights":  [
+
+                                        ],
+                         "copart_url":  "https://www.copart.com/lot/89659405",
+                         "specifications":  {
+
+                                            },
+                         "styles":  [
+
+                                    ],
+                         "engines":  [
+
+                                     ],
+                         "features":  {
+
+                                      }
+                     },
+                     {
+                         "lot_number":  "87043645",
+                         "vin":  "4T1T11AK2RU******",
+                         "year":  "2024",
+                         "make":  "TOYOTA",
+                         "model":  "CAMRY",
+                         "trim":  "N/A",
+                         "body_style":  "N/A",
+                         "odometer":  "48571 ",
+                         "odometer_status":  "N/A",
+                         "engine":  "2.5L  4",
+                         "cylinders":  "4",
+                         "transmission":  "N/A",
+                         "drive":  "Front-wheel Drive",
+                         "fuel":  "GAS",
+                         "exterior_color":  "BLACK",
+                         "interior_color":  "N/A",
+                         "doc_type":  "NW",
+                         "title_type":  "DEALER ONLY CLEAN TITLE",
+                         "has_keys":  "Yes",
+                         "primary_damage":  "NORMAL WEAR",
+                         "secondary_damage":  "N/A",
+                         "sale_status":  "Minimum Bid",
+                         "current_bid":  "$375",
+                         "buy_it_now_price":  "N/A",
+                         "estimated_retail_value":  "N/A",
+                         "location":  "NC - MOCKSVILLE",
+                         "auction_date":  "2025-11-13T17:00:00.000Z",
+                         "imageUrl":  "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1025/6f5f7ca7a31247bb8e9470950037a3f1_ful.jpg",
+                         "images_gallery":  [
+
+                                            ],
+                         "images":  [
+
+                                    ],
+                         "image_count":  0,
+                         "engine_video":  "N/A",
+                         "highlights":  [
+
+                                        ],
+                         "copart_url":  "https://www.copart.com/lot/87043645",
+                         "specifications":  {
+
+                                            },
+                         "styles":  [
+
+                                    ],
+                         "engines":  [
+
+                                     ],
+                         "features":  {
+
+                                      }
+                     }
+                 ],
+    "message":  "Scraped 1 Copart page(s) = 20 vehicles in 98s. Now in cache.",
+    "copartPagesScraped":  1,
+    "scrapeDurationSeconds":  98,
+    "timestamp":  "2025-11-13T02:20:49.780Z"
+}

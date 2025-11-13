@@ -1,0 +1,207 @@
+{
+  "success": true,
+  "count": 3,
+  "vehicles": [
+    {
+      "lot_number": "67890123",
+      "vin": "2T1BURHE9FC123456",
+      "year": "2015",
+      "make": "Toyota",
+      "model": "Corolla",
+      "trim": "S Premium",
+      "body_style": "Sedan",
+      "odometer": "89,234 mi",
+      "engine": "1.8L I4",
+      "cylinders": "4",
+      "transmission": "Automatic CVT",
+      "drive": "FWD",
+      "fuel": "Gasoline",
+      "exterior_color": "Super White",
+      "interior_color": "Black",
+      "doc_type": "CERTIFICATE OF TITLE",
+      "title_type": "Salvage",
+      "has_keys": "Yes",
+      "primary_damage": "Front End",
+      "secondary_damage": "Minor Dent/Scratches",
+      "sale_status": "LIVE",
+      "current_bid": "$4,200",
+      "buy_it_now_price": "$7,500",
+      "estimated_retail_value": "$12,850",
+      "location": "Los Angeles (CA)",
+      "auction_date": "2025-01-15T18:00:00.000Z",
+      "images": [
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_001_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_001_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_001_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_002_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_002_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_002_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_003_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_003_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_003_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_004_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_004_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/1234/2T1BURHE9FC123456_004_hrs.jpg"
+        }
+      ],
+      "image_count": 5,
+      "engine_video": "https://www.copart.com/video/2T1BURHE9FC123456.mp4",
+      "highlights": [
+        "Clean interior condition",
+        "All airbags intact",
+        "Runs and drives",
+        "Low mileage for year",
+        "Premium sound system"
+      ],
+      "copart_url": "https://www.copart.com/lot/67890123"
+    },
+    {
+      "lot_number": "67890124",
+      "vin": "1G1JC5SH5E4789012",
+      "year": "2014",
+      "make": "Chevrolet",
+      "model": "Camaro",
+      "trim": "2SS",
+      "body_style": "Coupe",
+      "odometer": "37,651 mi",
+      "engine": "6.2L V8",
+      "cylinders": "8",
+      "transmission": "Automatic 6-Speed",
+      "drive": "RWD",
+      "fuel": "Gasoline",
+      "exterior_color": "Victory Red",
+      "interior_color": "Black Leather",
+      "doc_type": "CERTIFICATE OF TITLE",
+      "title_type": "Salvage",
+      "has_keys": "Yes",
+      "primary_damage": "Side",
+      "secondary_damage": "Undercarriage",
+      "sale_status": "UPCOMING",
+      "current_bid": "N/A",
+      "buy_it_now_price": "$12,500",
+      "estimated_retail_value": "$18,200",
+      "location": "Dallas (TX)",
+      "auction_date": "2025-01-18T19:00:00.000Z",
+      "images": [
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_001_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_001_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_001_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_002_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_002_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/5678/1G1JC5SH5E4789012_002_hrs.jpg"
+        }
+      ],
+      "image_count": 3,
+      "engine_video": "N/A",
+      "highlights": [
+        "Performance package",
+        "RS package",
+        "Premium wheels",
+        "HUD display",
+        "Boston audio system"
+      ],
+      "copart_url": "https://www.copart.com/lot/67890124"
+    },
+    {
+      "lot_number": "67890125",
+      "vin": "1FTFW1ET5DFC12345",
+      "year": "2013",
+      "make": "Ford",
+      "model": "F-150",
+      "trim": "XLT SuperCrew",
+      "body_style": "Pickup Truck",
+      "odometer": "124,567 mi",
+      "engine": "5.0L V8",
+      "cylinders": "8",
+      "transmission": "Automatic 6-Speed",
+      "drive": "4WD",
+      "fuel": "Gasoline",
+      "exterior_color": "Oxford White",
+      "interior_color": "Steel Gray",
+      "doc_type": "CERTIFICATE OF TITLE",
+      "title_type": "Clean",
+      "has_keys": "No",
+      "primary_damage": "Hail",
+      "secondary_damage": "N/A",
+      "sale_status": "SOLD",
+      "current_bid": "$9,850",
+      "buy_it_now_price": "N/A",
+      "estimated_retail_value": "$15,400",
+      "location": "Houston (TX)",
+      "auction_date": "2025-01-10T20:00:00.000Z",
+      "images": [
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_001_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_001_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_001_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_002_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_002_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_002_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_003_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_003_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_003_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_004_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_004_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_004_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_005_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_005_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_005_hrs.jpg"
+        },
+        {
+          "thumbnail": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_006_thb.jpg",
+          "full": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_006_ful.jpg",
+          "high_res": "https://cs.copart.com/v1/AUTH_svc.pdoc00001/lpp/9012/1FTFW1ET5DFC12345_006_hrs.jpg"
+        }
+      ],
+      "image_count": 7,
+      "engine_video": "https://www.copart.com/video/1FTFW1ET5DFC12345.mp4",
+      "highlights": [
+        "4x4 capability",
+        "Tow package",
+        "Power seats",
+        "Backup camera",
+        "Bluetooth connectivity"
+      ],
+      "copart_url": "https://www.copart.com/lot/67890125"
+    }
+  ],
+  "metadata": {
+    "optimization": "UI-focused fields only",
+    "fields_per_vehicle": 31,
+    "size_reduction": "~98% from full Apify format",
+    "timestamp": "2025-01-11T12:00:00.000Z"
+  }
+}

@@ -1,0 +1,16 @@
+# Excluir lo que no hace falta en la imagen
+node_modules
+npm-debug.log
+.dist
+/dist
+.git
+.gitignore
+Dockerfile
+README.md
+README_PRODUCCION.md
+RESUMEN_PRODUCCION.md
+docs/
+tests/
+*.log
+.env
+.env.*
