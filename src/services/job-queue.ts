@@ -38,15 +38,11 @@ class JobQueueManager {
 
     // Queue event handlers
     queue.on('completed', (job: Job) => {
-      logger.info(`✅ Job completed: ${jobType}`, { jobId: job.id, data: job.data });
+      logger.info(`✅ Job completed: ${jobType} - Job ID: ${job.id}`);
     });
 
     queue.on('failed', (job: Job, err: Error) => {
-      logger.error(`❌ Job failed: ${jobType}`, { 
-        jobId: job.id, 
-        error: err.message,
-        attemptsMade: job.attemptsMade,
-      });
+      logger.error(`❌ Job failed: ${jobType} - Job ID: ${job.id} - Error: ${err.message} - Attempts: ${job.attemptsMade}`);
     });
 
     queue.on('error', (err: Error) => {
@@ -81,7 +77,7 @@ class JobQueueManager {
       delay: options?.delay || 0,
     });
 
-    logger.info(`📝 Job added: ${jobType}`, { jobId: job.id });
+    logger.info(`📝 Job added: ${jobType} - Job ID: ${job.id}`);
     return job;
   }
 
@@ -102,7 +98,7 @@ class JobQueueManager {
       removeOnComplete: true,
     });
 
-    logger.info(`⏰ Recurring job scheduled: ${jobType}`, { cron: cronExpression });
+    logger.info(`⏰ Recurring job scheduled: ${jobType} - Cron: ${cronExpression}`);
   }
 
   /**

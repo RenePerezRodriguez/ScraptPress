@@ -168,6 +168,6 @@ export class RateLimiterService {
    */
   configure(config: Partial<RateLimitConfig>): void {
     this.config = { ...this.config, ...config };
-    logger.info('⚙️  Rate limiter configured:', this.config);
+    logger.info(`⚙️  Rate limiter configured: ${JSON.stringify(this.config)}`);
   }
 }
