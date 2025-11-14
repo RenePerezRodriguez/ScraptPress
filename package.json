@@ -1,7 +1,7 @@
 {
   "name": "scraptpress",
-  "version": "1.1.0",
-  "description": "Professional Copart vehicle scraper API with Firebase Firestore, anti-bot detection, and Cloud Run optimization",
+  "version": "1.2.0",
+  "description": "Professional Copart vehicle scraper API with intelligent batching, prefetch, Firebase Firestore, and Cloud Run optimization",
   "main": "dist/index.js",
   "repository": {
     "type": "git",
@@ -58,10 +58,8 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.5",
     "@types/jest": "^30.0.0",
-    "@types/pg": "^8.15.6",
     "@types/supertest": "^6.0.3",
     "jest": "^30.2.0",
-    "mongodb-memory-server": "^10.3.0",
     "nodemon": "^3.1.10",
     "supertest": "^7.1.4",
     "ts-jest": "^29.4.5",

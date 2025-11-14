@@ -146,7 +146,7 @@ export const authenticateAdmin = (req: Request, res: Response, next: NextFunctio
     return;
   }
 
-  logger.info('Admin access granted', {
+  logger.info('AUTH', 'Admin access granted', {
     ip: req.ip,
     path: req.path,
   });

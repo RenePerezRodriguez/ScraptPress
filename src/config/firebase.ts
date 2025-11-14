@@ -73,7 +73,8 @@ export const getFirebaseApp = (): admin.app.App => {
  * Firestore collection names (shared with SUM-Trading)
  */
 export const COLLECTIONS = {
-  VEHICLES: 'copart_vehicles',       // Copart scraped vehicles
+  VEHICLES: 'copart_vehicles',       // Copart scraped vehicles (legacy)
+  SEARCH_BATCHES: 'search_batches',  // Optimized: searches/{query}/batches/{batchNumber}
   COPART_CACHE: 'copart_cache',      // Shared cache with frontend
   SEARCH_HISTORY: 'search_history',  // User search analytics
   API_REQUESTS: 'api_requests',      // API usage metrics

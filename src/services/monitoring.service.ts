@@ -154,7 +154,7 @@ export class MonitoringService {
   startPeriodicLogging(intervalMs: number = 60000): void {
     const health = this.getHealthStatus();
 
-    this.logger.info('📊 System Metrics', {
+    this.logger.info('METRICS', '📊 System Metrics', {
       uptime: `${(health.metrics.uptime / 60).toFixed(2)} minutes`,
       memory: `${(health.metrics.memoryUsage.heapUsed / 1024 / 1024).toFixed(2)} MB / ${(health.metrics.memoryUsage.heapTotal / 1024 / 1024).toFixed(2)} MB`,
       rps: health.metrics.requestsPerSecond.toFixed(2),

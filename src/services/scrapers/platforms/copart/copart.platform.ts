@@ -19,6 +19,7 @@ import { VehicleTransformer } from './transformers/vehicle.transformer';
 import { extractAllDetails } from './extractors/details.extractor';
 import { BasePlatform, PlatformConfig } from '../../platforms/base.platform';
 import { Logger } from '../../../../config/logger';
+import { CopartConfig } from '../../../../config/copart.config';
 
 const logger = Logger.getInstance();
 
@@ -28,6 +29,8 @@ export class CopartPlatform extends BasePlatform {
   private context: BrowserContext | null = null;
   private apiResponses: Map<string, CopartSearchResponse> = new Map();
   private vehicleApiData: Map<string, any> = new Map();
+  private currentExpectedPage: number = -1;
+  private videoUrls: Map<string, string> = new Map();
 
   constructor(config?: Partial<PlatformConfig>) {
     const defaultConfig: PlatformConfig = {
@@ -82,40 +85,85 @@ export class CopartPlatform extends BasePlatform {
         '--disable-gpu',
         '--disable-setuid-sandbox',
         '--disable-background-networking',
-        '--disable-background-timer-throttling'
+        '--disable-background-timer-throttling',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--disable-site-isolation-trials',
+        '--window-size=1920,1080'
       ]
     });
 
     this.context = await this.browser.newContext({
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       viewport: { width: 1920, height: 1080 },
       locale: 'en-US',
       timezoneId: 'America/New_York',
       permissions: ['geolocation'],
       hasTouch: false,
-      isMobile: false
+      isMobile: false,
+      extraHTTPHeaders: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0'
+      }
     });
 
     this.page = await this.context.newPage();
     
-    // Anti-detection measures
+    // Enhanced anti-detection measures
     await this.page.addInitScript(() => {
+      // Remove webdriver property
       Object.defineProperty(navigator, 'webdriver', {
         get: () => undefined
       });
       
+      // Add chrome object
       (window as any).chrome = {
-        runtime: {}
+        runtime: {},
+        loadTimes: function() {},
+        csi: function() {},
+        app: {}
       };
       
+      // Mock plugins
       Object.defineProperty(navigator, 'plugins', {
         get: () => [1, 2, 3, 4, 5]
       });
       
+      // Languages
       Object.defineProperty(navigator, 'languages', {
         get: () => ['en-US', 'en']
       });
+      
+      // Platform
+      Object.defineProperty(navigator, 'platform', {
+        get: () => 'Win32'
+      });
+      
+      // Hardware concurrency
+      Object.defineProperty(navigator, 'hardwareConcurrency', {
+        get: () => 8
+      });
+      
+      // Device memory
+      Object.defineProperty(navigator, 'deviceMemory', {
+        get: () => 8
+      });
+      
+      // Permissions
+      const originalQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters: any) => (
+        parameters.name === 'notifications' ?
+          Promise.resolve({ state: 'denied' } as PermissionStatus) :
+          originalQuery(parameters)
+      );
     });
     
     this.page.setDefaultTimeout(this.config.timeout || 60000);
@@ -148,6 +196,21 @@ export class CopartPlatform extends BasePlatform {
       }
     });
 
+    // Intercept video requests (.mp4 files)
+    await pageToSetup.on('request', async (request) => {
+      const url = request.url();
+      if (url.includes('copart.com') && url.endsWith('.mp4')) {
+        // Extract lot number from URL context or page
+        const match = url.match(/\/([a-f0-9]{32})_O\.mp4/);
+        if (match) {
+          const videoHash = match[1];
+          logger.debug(`🎬 Intercepted video request: ${url}`);
+          // Store video URL by hash for later matching
+          this.videoUrls.set(videoHash, url);
+        }
+      }
+    });
+
     await pageToSetup.on('response', async (response) => {
       try {
         const url = response.url();
@@ -168,9 +231,18 @@ export class CopartPlatform extends BasePlatform {
                                     (Array.isArray(data) && data.length > 0 && data[0]?.lotNumberStr);
               
               if (hasVehicleData) {
-                this.apiResponses.set('search', data);
+                // USE THE CURRENT EXPECTED PAGE instead of trying to extract from URL
+                // Copart's API URLs don't reliably contain page numbers
+                const pageNumber = this.currentExpectedPage;
+                
                 const itemCount = data.data?.results?.content?.length || data.data?.content?.length || data.data?.length || data.length || 0;
-                logger.debug(`Intercepted ${itemCount} vehicles from API`);
+                
+                // Store with page number as key to capture multiple responses
+                const responseKey = pageNumber >= 0 ? `search_page_${pageNumber}` : 'search';
+                this.apiResponses.set(responseKey, data);
+                
+                logger.debug(`✅ Intercepted ${itemCount} vehicles from API (assigned to expected page: ${pageNumber})`);
+                logger.debug(`📍 Stored as key: "${responseKey}"`);
               }
             }
           } catch (e) {
@@ -261,17 +333,32 @@ export class CopartPlatform extends BasePlatform {
       if (parsed.isSingleLot) {
         await this.scrapeSingleLot(parsed.query, results);
       } else {
-        const url_to_scrape = new URL(url);
+        // In classic view, we can get up to 100 items per page
+        // We'll switch to classic view and set page size automatically
+        const pageSize = CopartConfig.getValidPageSize(itemsPerPage);
+        const pagesNeeded = CopartConfig.calculatePagesNeeded(itemsPerPage, pageSize);
         
-        if (page === 2) {
-          url_to_scrape.searchParams.set('sort', 'price');
-        } else if (page === 3) {
-          url_to_scrape.searchParams.set('sort', 'mileage');
-        } else if (page >= 4) {
-          url_to_scrape.searchParams.set('sort', 'year');
+        logger.info(`📄 Requesting ${itemsPerPage} items, need ${pagesNeeded} page(s) (${pageSize} items each in classic view)`);
+
+        for (let i = 0; i < pagesNeeded; i++) {
+          // Copart uses 1-indexed pages (page=1, page=2, page=3...)
+          // page parameter from API already represents the correct Copart page
+          const currentPage = page + i;
+          const url_to_scrape = new URL(url);
+          
+          url_to_scrape.searchParams.set('page', String(currentPage));
+          url_to_scrape.searchParams.set('size', String(pageSize));
+          
+          logger.debug(`🔍 Scraping Copart page ${currentPage} (${i + 1}/${pagesNeeded})`);
+          
+          await this.scrapeSearch(url_to_scrape.toString(), pageSize, results, currentPage);
+          
+          // Stop if we have enough results
+          if (results.length >= itemsPerPage) {
+            logger.debug(`✅ Got enough results: ${results.length}/${itemsPerPage}`);
+            break;
+          }
         }
-        
-        await this.scrapeSearch(url_to_scrape.toString(), itemsPerPage, results);
       }
 
       await this.enrichWithVins(results);
@@ -290,7 +377,7 @@ export class CopartPlatform extends BasePlatform {
       VehicleTransformer.optimizeForUi(vehicle)
     );
 
-    logger.debug(`Scraping complete. Page: ${page}, Items: ${optimizedResults.length}`);
+    logger.debug(`Scraping complete. Requested: ${itemsPerPage}, Got: ${optimizedResults.length}`);
     return optimizedResults.slice(0, itemsPerPage);
   }
 
@@ -320,29 +407,375 @@ export class CopartPlatform extends BasePlatform {
 
   // ============= Search Scraping =============
 
-  private async scrapeSearch(url: string, maxItems: number, results: VehicleData[]): Promise<void> {
+  private async switchToClassicView(pageSize: number): Promise<void> {
+    if (!this.page) return;
+    
+    try {
+      // Simulate human behavior - random mouse movements
+      await this.page.mouse.move(Math.random() * 500 + 100, Math.random() * 500 + 100);
+      await this.page.waitForTimeout(Math.random() * 1000 + 1500);
+      
+      // Scroll like a human
+      await this.page.evaluate(() => {
+        window.scrollTo({
+          top: Math.random() * 300,
+          behavior: 'smooth'
+        });
+      });
+      await this.page.waitForTimeout(Math.random() * 800 + 500);
+      
+      // Check if there's a reCAPTCHA
+      const hasCaptcha = await this.page.$('iframe[src*="recaptcha"]').catch(() => null);
+      if (hasCaptcha) {
+        logger.warn('🚨 reCAPTCHA detected! Waiting 30 seconds for manual resolution...');
+        await this.page.waitForTimeout(30000);
+        logger.info('✅ Captcha wait complete, continuing...');
+      }
+      
+      logger.info('🔍 Looking for Classic View button...');
+      
+      // Use centralized selectors from config
+      const selectors = CopartConfig.selectors.classicViewButton;
+      
+      // Try multiple times with longer waits
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        logger.debug(`Attempt ${attempt}/3 to find Classic View button`);
+        
+        for (const selector of selectors) {
+          try {
+            const button = await this.page.$(selector);
+            if (button) {
+              // Check if it's the classic view button by looking at the text
+              const buttonText = await this.page.evaluate((btn: any) => btn.textContent || '', button);
+              const hasClassicText = CopartConfig.textPatterns.classicViewButton.some(pattern => 
+                buttonText.includes(pattern)
+              );
+              
+              if (hasClassicText) {
+                logger.info(`✅ Found Classic View button with selector: ${selector}`);
+                await button.click();
+                logger.info('🔄 Clicked Classic View button');
+                await this.page.waitForTimeout(CopartConfig.classicView.switchTimeout);
+                
+                // Get valid page size from config
+                const validPageSize = CopartConfig.getValidPageSize(pageSize);
+                await this.setPageSize(validPageSize);
+                return;
+              }
+            }
+          } catch (e) {
+            logger.debug(`Selector ${selector} failed:`, e);
+            continue;
+          }
+        }
+        
+        // Wait before next attempt
+        if (attempt < 3) {
+          logger.debug(`Waiting 2 seconds before attempt ${attempt + 1}...`);
+          await this.page.waitForTimeout(2000);
+        }
+      }
+      
+      // If we get here, we couldn't find the button after 3 attempts
+      throw new Error('❌ Classic View button not found after 3 attempts. Cannot continue without classic view.');
+    } catch (error) {
+      logger.error('❌ Critical error switching to classic view:', error);
+      throw error; // Re-throw to fail the scraping
+    }
+  }
+
+  private async setPageSize(size: number): Promise<void> {
+    if (!this.page) return;
+    
+    try {
+      // Wait for the select to be available after switching views
+      await this.page.waitForTimeout(2000);
+      
+      logger.info(`📏 Looking for page size selector...`);
+      
+      // Use centralized selectors from config
+      const selectors = CopartConfig.selectors.pageSizeDropdown;
+      
+      for (const selector of selectors) {
+        try {
+          const selectElement = await this.page.$(selector);
+          if (selectElement) {
+            logger.info(`✅ Found page size selector: ${selector}`);
+            
+            // Use Playwright's selectOption method - more reliable
+            // Valid options are: "5", "10", "20", "50", "100"
+            await this.page.selectOption(selector, String(size));
+            
+            // Verify the selection was made
+            const selectedValue = await this.page.$eval(selector, (el: any) => el.value);
+            logger.info(`✅ Page size set to ${size}, verified value: ${selectedValue}`);
+            
+            await this.page.waitForTimeout(3000); // Wait for page to reload with new size
+            return;
+          }
+        } catch (e) {
+          logger.debug(`Selector ${selector} failed:`, e);
+          continue;
+        }
+      }
+      
+      logger.warn('⚠️ Page size selector not found - will work with default page size');
+    } catch (error) {
+      logger.warn(`⚠️ Error setting page size to ${size} - continuing with defaults:`, error);
+    }
+  }
+
+  /**
+   * Navigate to a specific page using Copart's pagination system
+   * Strategy: Click on page number button which has href with ?page=X
+   * More reliable than repeated "Siguiente" clicks
+   */
+  private async navigateToPage(targetPage: number): Promise<void> {
+    if (!this.page || targetPage <= 1) return;
+    
+    logger.info(`📄 Navigating to page ${targetPage} using pagination buttons...`);
+    
+    try {
+      // Wait for pagination to be ready
+      await this.page.waitForTimeout(2000);
+      
+      // STRATEGY 1: Click directly on the page number button if visible
+      // The HTML shows: <a href="/lotSearchResults?...&page=5&..." data-dt-idx="5">5</a>
+      const pageNumberSelectors = [
+        `li.paginate_button a[href*="page=${targetPage}"]:not(.disabled)`,
+        `a[aria-controls="serverSideDataTable"][href*="page=${targetPage}"]`,
+        `#serverSideDataTable_paginate a:has-text("${targetPage}")`,
+      ];
+      
+      for (const selector of pageNumberSelectors) {
+        try {
+          const pageButton = await this.page.$(selector);
+          if (pageButton) {
+            // Get the href to verify it has the correct page
+            const href = await this.page.evaluate((btn: any) => btn.href, pageButton);
+            
+            if (href && href.includes(`page=${targetPage}`)) {
+              logger.info(`✅ Found direct page ${targetPage} button, clicking...`);
+              
+              // Clear responses before clicking
+              this.apiResponses.clear();
+              this.currentExpectedPage = targetPage;
+              
+              await pageButton.click();
+              await this.page.waitForTimeout(4000); // Wait for page load
+              
+              logger.info(`✅ Successfully clicked page ${targetPage} button`);
+              return;
+            }
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      
+      // STRATEGY 2: If page number not visible, use "Siguiente" button repeatedly
+      // This happens when target page is far (e.g., page 20 when only 1-10 visible)
+      logger.info(`📄 Page ${targetPage} button not visible, using "Siguiente" button...`);
+      await this.navigateUsingNextButton(targetPage);
+      
+    } catch (error) {
+      logger.error(`❌ Error navigating to page ${targetPage}:`, error);
+      // STRATEGY 3: Fallback to URL manipulation
+      logger.warn(`⚠️ Falling back to URL navigation for page ${targetPage}`);
+      await this.navigateToPageByUrl(targetPage);
+    }
+  }
+
+  /**
+   * Navigate using repeated "Siguiente" (Next) button clicks
+   * Used when target page button is not visible in pagination
+   */
+  private async navigateUsingNextButton(targetPage: number): Promise<void> {
+    if (!this.page) return;
+    
+    // Detect current page from active button
+    let currentPage = 1;
+    try {
+      const activePage = await this.page.$('li.paginate_button.active a');
+      if (activePage) {
+        const pageText = await this.page.evaluate((btn: any) => btn.textContent, activePage);
+        currentPage = parseInt(pageText) || 1;
+      }
+    } catch (e) {
+      logger.debug('Could not detect current page, assuming page 1');
+    }
+    
+    const clicksNeeded = targetPage - currentPage;
+    logger.info(`📄 Current page: ${currentPage}, need ${clicksNeeded} clicks to reach page ${targetPage}`);
+    
+    if (clicksNeeded <= 0) {
+      logger.info(`✅ Already on page ${targetPage}`);
+      return;
+    }
+    
+    for (let i = 0; i < clicksNeeded; i++) {
+      try {
+        await this.page.waitForTimeout(1000);
+        
+        // Find "Siguiente" button
+        // HTML: <li class="paginate_button next" id="serverSideDataTable_next">
+        //         <a href="#" aria-controls="serverSideDataTable" data-dt-idx="9">Siguiente</a>
+        //       </li>
+        const nextButtonSelectors = [
+          'li.paginate_button.next:not(.disabled) a',
+          '#serverSideDataTable_next:not(.disabled) a',
+          'a[aria-controls="serverSideDataTable"]:has-text("Siguiente")',
+        ];
+        
+        let clicked = false;
+        for (const selector of nextButtonSelectors) {
+          try {
+            const button = await this.page.$(selector);
+            if (button) {
+              // Verify parent li is not disabled
+              const isDisabled = await this.page.evaluate((btn: any) => {
+                return btn.parentElement?.classList.contains('disabled');
+              }, button);
+              
+              if (!isDisabled) {
+                logger.debug(`🖱️ Clicking "Siguiente" (${i + 1}/${clicksNeeded})`);
+                
+                this.apiResponses.clear();
+                this.currentExpectedPage = currentPage + i + 1;
+                
+                await button.click();
+                clicked = true;
+                await this.page.waitForTimeout(3000);
+                break;
+              }
+            }
+          } catch (e) {
+            continue;
+          }
+        }
+        
+        if (!clicked) {
+          throw new Error(`Could not click "Siguiente" button on attempt ${i + 1}`);
+        }
+        
+      } catch (error) {
+        logger.error(`❌ Error on click ${i + 1}:`, error);
+        throw error;
+      }
+    }
+    
+    logger.info(`✅ Reached page ${targetPage} using "Siguiente" button`);
+  }
+
+  /**
+   * Fallback method: Navigate by URL manipulation
+   */
+  private async navigateToPageByUrl(pageNumber: number): Promise<void> {
+    if (!this.page) return;
+    
+    logger.debug(`🔗 Fallback: Navigating to page ${pageNumber} by URL`);
+    
+    const currentUrl = this.page.url();
+    const url = new URL(currentUrl);
+    url.searchParams.set('page', String(pageNumber));
+    
+    this.currentExpectedPage = pageNumber;
+    this.apiResponses.clear();
+    
+    await this.page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: this.config.timeout });
+  }
+
+  private async scrapeSearch(url: string, maxItems: number, results: VehicleData[], expectedPageIndex?: number): Promise<void> {
     if (!this.page) return;
 
-    this.log('info', `Navigating to: ${url}`);
+    // NUEVA ESTRATEGIA: No incluir ?page en la URL inicial
+    // 1. Navegar a la URL base sin parámetro page
+    // 2. Cambiar a vista clásica
+    // 3. Configurar tamaño de página
+    // 4. LUEGO navegar a la página específica con botón "Siguiente"
+    
+    const urlObj = new URL(url);
+    const targetPage = parseInt(urlObj.searchParams.get('page') || '1');
+    
+    // Remove page parameter from initial navigation
+    urlObj.searchParams.delete('page');
+    const baseUrl = urlObj.toString();
+    
+    this.log('info', `Navigating to base URL (will navigate to page ${targetPage} after setup): ${baseUrl}`);
+    
+    // Set expected page
+    this.currentExpectedPage = targetPage;
+    logger.debug(`🎯 Target page: ${targetPage}`);
+    
     this.apiResponses.clear();
     this.vehicleApiData.clear();
 
-    await this.page.goto(url, { waitUntil: 'load', timeout: this.config.timeout }).catch(() => {});
+    // Navigate to BASE URL with random delay to appear more human
+    await this.page.waitForTimeout(Math.random() * 2000 + 1000);
+    await this.page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: this.config.timeout }).catch(() => {});
     
-    logger.debug('Waiting for search API response...');
-    const maxWaitTime = 15000;
+    // Wait for network idle with human-like delay
+    await this.page.waitForTimeout(Math.random() * 1500 + 2000);
+    
+    // Random mouse movement on page
+    await this.page.mouse.move(Math.random() * 800 + 200, Math.random() * 600 + 100);
+    
+    // Check for captcha before proceeding
+    const hasCaptcha = await this.page.$('iframe[src*="recaptcha"]').catch(() => null);
+    if (hasCaptcha) {
+      logger.warn('🚨 reCAPTCHA detected on search page! Waiting 30 seconds...');
+      await this.page.waitForTimeout(30000);
+    }
+    
+    // Step 1: Switch to classic view
+    await this.switchToClassicView(maxItems);
+    
+    // Step 2: Configure page size (this triggers a reload)
+    // Page size is already set in switchToClassicView, but we're already on page 1
+    
+    // Step 3: Navigate to target page if needed (using "Siguiente" button)
+    if (targetPage > 1) {
+      logger.info(`📄 Now navigating from page 1 to page ${targetPage}...`);
+      await this.navigateToPage(targetPage);
+    }
+    
+    // Wait for API response with the correct page data
+    logger.debug(`Waiting for search API response (expecting page ${expectedPageIndex ?? 0})...`);
+    const maxWaitTime = 20000;  // Increased to 20 seconds
     const pollInterval = 500;
     let elapsedTime = 0;
     
-    while (elapsedTime < maxWaitTime && !this.apiResponses.has('search')) {
+    // Look for the response with the correct page number
+    const targetKey = expectedPageIndex !== undefined ? `search_page_${expectedPageIndex}` : 'search';
+    
+    while (elapsedTime < maxWaitTime) {
+      // Check if we have the response for the expected page
+      if (this.apiResponses.has(targetKey)) {
+        logger.debug(`✅ Found response for page ${expectedPageIndex}`);
+        break;
+      }
+      // Fallback: if we have ANY search response after 10 seconds, use it
+      if (elapsedTime > 10000 && this.apiResponses.has('search')) {
+        logger.warn(`⚠️ Using fallback search response (expected page ${expectedPageIndex})`);
+        break;
+      }
       await this.page.waitForTimeout(pollInterval);
       elapsedTime += pollInterval;
     }
     
-    const apiData = this.apiResponses.get('search');
+    // Try to get the response for the expected page first, fallback to any search response
+    const apiData = this.apiResponses.get(targetKey) || this.apiResponses.get('search');
     
     if (apiData?.data?.results?.content) {
       const content = apiData.data.results.content;
+      const results_metadata = apiData.data.results;
+      
+      // Log complete metadata for debugging pagination
+      logger.debug(`📊 API Response Metadata (full):`, JSON.stringify(results_metadata, null, 2));
+      logger.debug(`📊 API Response - Known fields:`, {
+        totalElements: results_metadata.totalElements,
+        contentLength: content.length
+      });
       
       content.forEach((item: any) => {
         const lotNumber = item.lotNumberStr || item.lot_number || item.ln;
@@ -350,6 +783,35 @@ export class CopartPlatform extends BasePlatform {
           this.vehicleApiData.set(lotNumber.toString(), item);
         }
       });
+      
+      // Try to extract video URLs from DOM for each vehicle
+      if (this.page) {
+        try {
+          const videoUrls = await this.page.evaluate(() => {
+            const videos: { [key: string]: string } = {};
+            const videoElements = document.querySelectorAll('video source[src*=".mp4"]');
+            videoElements.forEach((source) => {
+              const src = source.getAttribute('src');
+              if (src) {
+                // Extract hash from video URL
+                const match = src.match(/\/([a-f0-9]{32})_O\.mp4/);
+                if (match) {
+                  videos[match[1]] = src;
+                }
+              }
+            });
+            return videos;
+          });
+          
+          // Store video URLs
+          Object.entries(videoUrls).forEach(([hash, url]) => {
+            this.videoUrls.set(hash, url);
+            logger.debug(`🎬 Found video in DOM: ${url}`);
+          });
+        } catch (e) {
+          logger.debug('Could not extract videos from DOM');
+        }
+      }
       
       results.push(...content.map((item: any) => VehicleTransformer.transformFromApi(item)));
       logger.debug(`Got ${content.length} items from API`);

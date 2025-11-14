@@ -72,6 +72,10 @@ export class VehicleRepository {
         search_tokens,
         specifications: {},
         seller: {},
+        // Ordering fields for maintaining scrape sequence
+        scraped_index: (vehicle as any).scraped_index || null,
+        scraped_batch: (vehicle as any).scraped_batch || null,
+        scraped_query: (vehicle as any).scraped_query || null,
         last_scraped_at: FirestoreHelpers.serverTimestamp(),
         updated_at: FirestoreHelpers.serverTimestamp(),
       };

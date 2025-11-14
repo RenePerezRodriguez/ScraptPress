@@ -3,11 +3,26 @@ import path from 'path';
 
 interface LogEntry {
   timestamp: string;
-  level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+  level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG' | 'SUCCESS';
+  section: string;
   message: string;
   data?: any;
 }
 
+/**
+ * Logger Service - Registra eventos con estructura clara
+ * 
+ * Niveles:
+ * - ℹ️ INFO: Eventos generales del sistema
+ * - ✅ SUCCESS: Operaciones completadas exitosamente
+ * - ⚠️ WARN: Advertencias (posibles problemas)
+ * - ❌ ERROR: Errores que requieren atención
+ * - 🔍 DEBUG: Información de depuración (solo en desarrollo)
+ * 
+ * Ejemplo:
+ * logger.info('SEARCH', 'Búsqueda iniciada', { query: 'toyota' });
+ * logger.success('BATCH', 'Batch completado', { size: 100, duration: 240 });
+ */
 export class Logger {
   private static instance: Logger;
   private logDir: string;
@@ -17,7 +32,7 @@ export class Logger {
     this.isDev = process.env.NODE_ENV !== 'production';
     this.logDir = path.join(process.cwd(), 'logs');
     
-    // Create logs directory if it doesn't exist
+    // Crear directorio de logs si no existe
     if (!fs.existsSync(this.logDir)) {
       fs.mkdirSync(this.logDir, { recursive: true });
     }
@@ -30,58 +45,182 @@ export class Logger {
     return Logger.instance;
   }
 
-  private formatMessage(level: string, message: string, data?: any): string {
-    const timestamp = new Date().toISOString();
-    const dataStr = data ? `\n${JSON.stringify(data, null, 2)}` : '';
-    return `[${timestamp}] ${level}: ${message}${dataStr}`;
+  private getTimestamp(): string {
+    return new Date().toISOString();
   }
 
-  private writeToFile(level: string, message: string, data?: any): void {
-    const logEntry: LogEntry = {
-      timestamp: new Date().toISOString(),
-      level: level as any,
-      message,
-      data,
-    };
+  private formatConsoleMessage(level: string, icon: string, section: string, message: string): string {
+    const time = this.getTimestamp().split('T')[1].split('Z')[0]; // HH:MM:SS.mmm
+    return `[${time}] ${icon} [${section}] ${message}`;
+  }
 
-    const logFile = path.join(this.logDir, `${level.toLowerCase()}.log`);
+  private writeToFile(entry: LogEntry): void {
+    const logFile = path.join(this.logDir, `${entry.level.toLowerCase()}.log`);
     const allLogsFile = path.join(this.logDir, 'all.log');
-
-    const logLine = JSON.stringify(logEntry) + '\n';
+    const logLine = JSON.stringify(entry) + '\n';
 
     try {
       fs.appendFileSync(logFile, logLine);
       fs.appendFileSync(allLogsFile, logLine);
     } catch (error) {
-      console.error('Error writing to log file:', error);
+      console.error('Error escribiendo en archivo de log:', error);
     }
   }
 
-  info(message: string, data?: any): void {
-    const formatted = this.formatMessage('INFO', message, data);
+  /**
+   * INFO - Eventos generales del sistema
+   * Uso: logger.info('SEARCH', 'Búsqueda iniciada', { query: 'toyota' })
+   * Uso legacy: logger.info('Búsqueda iniciada')
+   */
+  info(sectionOrMessage: string, message?: string, data?: any): void {
+    // Soporte para ambos formatos
+    const isLegacy = message === undefined;
+    const section = isLegacy ? 'GENERAL' : sectionOrMessage;
+    const msg = isLegacy ? sectionOrMessage : message!;
+    
+    const entry: LogEntry = {
+      timestamp: this.getTimestamp(),
+      level: 'INFO',
+      section,
+      message: msg,
+      data,
+    };
+    
+    const formatted = this.formatConsoleMessage('INFO', 'ℹ️', section, msg);
     console.log('\x1b[36m%s\x1b[0m', formatted); // Cyan
-    this.writeToFile('INFO', message, data);
+    
+    if (data) {
+      console.log('  └─ Datos:', data);
+    }
+    
+    this.writeToFile(entry);
   }
 
-  warn(message: string, data?: any): void {
-    const formatted = this.formatMessage('WARN', message, data);
+  /**
+   * SUCCESS - Operaciones completadas exitosamente
+   * Uso: logger.success('BATCH', 'Batch completado', { size: 100 })
+   * Uso legacy: logger.success('Batch completado')
+   */
+  success(sectionOrMessage: string, message?: string, data?: any): void {
+    const isLegacy = message === undefined;
+    const section = isLegacy ? 'GENERAL' : sectionOrMessage;
+    const msg = isLegacy ? sectionOrMessage : message!;
+    
+    const entry: LogEntry = {
+      timestamp: this.getTimestamp(),
+      level: 'SUCCESS',
+      section,
+      message: msg,
+      data,
+    };
+    
+    const formatted = this.formatConsoleMessage('SUCCESS', '✅', section, msg);
+    console.log('\x1b[32m%s\x1b[0m', formatted); // Green
+    
+    if (data) {
+      console.log('  └─ Datos:', data);
+    }
+    
+    this.writeToFile(entry);
+  }
+
+  /**
+   * WARN - Advertencias (posibles problemas)
+   * Uso: logger.warn('RATE-LIMIT', 'Rate limit detectado', { remaining: 0 })
+   * Uso legacy: logger.warn('Rate limit detectado')
+   */
+  warn(sectionOrMessage: string, message?: string | any, data?: any): void {
+    // Detectar si el segundo parámetro es un error object (legacy)
+    const isLegacy = message === undefined || (typeof message === 'object' && !(message instanceof String));
+    const section = isLegacy ? 'GENERAL' : sectionOrMessage;
+    const msg = isLegacy ? sectionOrMessage : message as string;
+    const finalData = isLegacy ? message : data;
+    
+    const entry: LogEntry = {
+      timestamp: this.getTimestamp(),
+      level: 'WARN',
+      section,
+      message: msg,
+      data: finalData,
+    };
+    
+    const formatted = this.formatConsoleMessage('WARN', '⚠️', section, msg);
     console.warn('\x1b[33m%s\x1b[0m', formatted); // Yellow
-    this.writeToFile('WARN', message, data);
+    
+    if (finalData) {
+      console.log('  └─ Datos:', finalData);
+    }
+    
+    this.writeToFile(entry);
   }
 
-  error(message: string, error?: any): void {
-    const formatted = this.formatMessage('ERROR', message, error);
+  /**
+   * ERROR - Errores que requieren atención
+   * Uso: logger.error('SCRAPE', 'Error en scraping', error)
+   * Uso legacy: logger.error('Error en scraping', error)
+   */
+  error(sectionOrMessage: string, messageOrError?: string | any, errorData?: any): void {
+    // Detectar formato legacy (message, error) vs nuevo (section, message, error)
+    const isLegacy = typeof messageOrError === 'object' || messageOrError === undefined;
+    const section = isLegacy ? 'ERROR' : sectionOrMessage;
+    const msg = isLegacy ? sectionOrMessage : messageOrError as string;
+    const finalError = isLegacy ? messageOrError : errorData;
+    
+    const entry: LogEntry = {
+      timestamp: this.getTimestamp(),
+      level: 'ERROR',
+      section,
+      message: msg,
+      data: finalError,
+    };
+    
+    const formatted = this.formatConsoleMessage('ERROR', '❌', section, msg);
     console.error('\x1b[31m%s\x1b[0m', formatted); // Red
-    this.writeToFile('ERROR', message, error);
+    
+    if (finalError) {
+      if (finalError instanceof Error) {
+        console.error('  ├─ Error:', finalError.message);
+        console.error('  └─ Stack:', finalError.stack);
+      } else {
+        console.error('  └─ Detalles:', finalError);
+      }
+    }
+    
+    this.writeToFile(entry);
   }
 
-  debug(message: string, data?: any): void {
+  /**
+   * DEBUG - Información de depuración (solo en desarrollo)
+   * Uso: logger.debug('EXTRACT', 'VIN extraído', { vin: '...' })
+   * Uso legacy: logger.debug('VIN extraído')
+   */
+  debug(sectionOrMessage: string, message?: string | any, data?: any): void {
     if (this.isDev) {
-      const formatted = this.formatMessage('DEBUG', message, data);
+      const isLegacy = message === undefined || (typeof message !== 'string' && typeof message !== 'number');
+      const section = isLegacy ? 'DEBUG' : sectionOrMessage;
+      const msg = isLegacy ? sectionOrMessage : message as string;
+      const finalData = isLegacy ? (typeof message === 'object' ? message : undefined) : data;
+      
+      const entry: LogEntry = {
+        timestamp: this.getTimestamp(),
+        level: 'DEBUG',
+        section,
+        message: msg,
+        data: finalData,
+      };
+      
+      const formatted = this.formatConsoleMessage('DEBUG', '🔍', section, msg);
       console.debug('\x1b[35m%s\x1b[0m', formatted); // Magenta
-      this.writeToFile('DEBUG', message, data);
+      
+      if (finalData) {
+        console.log('  └─ Datos:', finalData);
+      }
+      
+      this.writeToFile(entry);
     }
   }
 }
 
-export default Logger;
+// Export singleton instance as default
+const loggerInstance = Logger.getInstance();
+export default loggerInstance;

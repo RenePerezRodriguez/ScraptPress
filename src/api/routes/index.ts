@@ -5,6 +5,7 @@ import healthRoutes from './health.routes';
 import gdprRoutes from './gdpr.routes';
 import searchRoutes from './search.routes';
 import vehicleRoutes from './vehicle.routes';
+import firestoreLookupRoutes from './firestore-lookup.routes';
 
 const router = Router();
 
@@ -16,6 +17,9 @@ router.use('/gdpr', gdprRoutes);
 
 // Search routes (cached and fresh)
 router.use('/search', searchRoutes);
+
+// Firestore batch lookup (for vehicle details page optimization)
+router.use('/search/firestore-lookup', firestoreLookupRoutes);
 
 // Individual vehicle routes
 router.use('/vehicle', vehicleRoutes);

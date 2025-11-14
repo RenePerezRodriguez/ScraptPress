@@ -32,7 +32,7 @@ router.post('/access-data', validateGdprEmail, asyncHandler(async (req: Request,
     type: 'access',
   });
 
-  logger.info('📥 GDPR Access Request', { email });
+  logger.info('GDPR', '📥 GDPR Access Request', { email });
 
   res.json({
     success: true,
@@ -59,7 +59,7 @@ router.post('/delete-data', validateGdprEmail, asyncHandler(async (req: Request,
     type: 'delete',
   });
 
-  logger.info('🗑️ GDPR Deletion Request', { email });
+  logger.info('GDPR', '🗑️ GDPR Deletion Request', { email });
 
   res.json({
     success: true,
@@ -87,7 +87,7 @@ router.post('/data-portability', validateGdprEmail, asyncHandler(async (req: Req
     type: 'portability',
   });
 
-  logger.info('📦 GDPR Data Portability Request', { email });
+  logger.info('GDPR', '📦 GDPR Data Portability Request', { email });
 
   res.json({
     success: true,
@@ -139,7 +139,7 @@ router.post('/update-consent', asyncHandler(async (req: Request, res: Response) 
     return res.status(400).json({ error: 'Email requerido' });
   }
 
-  logger.info('📝 Consent Updated', { email, consents });
+  logger.info('GDPR', '📝 Consent Updated', { email, consents });
 
   res.json({
     success: true,

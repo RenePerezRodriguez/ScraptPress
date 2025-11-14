@@ -2,9 +2,15 @@
 // Global state
 let currentVehicles = [];
 let currentPage = 1;
-let itemsPerPage = 12;
+const itemsPerPage = 10; // Frontend page size (matches backend config)
 let totalPages = 1;
 let currentQuery = '';
+let batchInfo = null;
+let prefetchInProgress = false;
+
+// API Configuration
+const API_BASE = '';  // Same domain
+const API_KEY = '0d2366db7108a67dcc49e309128808f566c092cb9afa8fc789b33b92ee0a863e';
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,6 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeEventListeners() {
   const form = document.getElementById('search-form');
   form.addEventListener('submit', handleSearch);
+  
+  // Pagination button listeners
+  document.getElementById('first-page-btn')?.addEventListener('click', goToFirstPage);
+  document.getElementById('prev-page-btn')?.addEventListener('click', previousPage);
+  document.getElementById('next-page-btn')?.addEventListener('click', nextPage);
+  document.getElementById('last-page-btn')?.addEventListener('click', goToLastPage);
 }
 
 // Handle search form submission
@@ -21,17 +33,19 @@ async function handleSearch(event) {
   event.preventDefault();
   
   const query = document.getElementById('query').value.trim();
-  const count = parseInt(document.getElementById('count').value) || 12;
   
   if (!query) {
     showError('Por favor ingresa un término de búsqueda');
     return;
   }
   
-  // Reset pagination
+  // Reset everything
   currentPage = 1;
-  itemsPerPage = count;
   currentQuery = query;
+  currentVehicles = [];
+  batchInfo = null;
+  
+  console.log(`[Search] 🔍 Nueva búsqueda: "${query}"`);
   
   await fetchPage(currentPage);
 }
@@ -41,46 +55,65 @@ async function fetchPage(page) {
   showLoading(true);
   hideError();
   
+  console.log(`[Fetch] 📄 Solicitando página ${page} para "${currentQuery}"`);
+  
   try {
-    const response = await fetch('/api/scraper/vehicles', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ 
-        query: currentQuery, 
-        count: itemsPerPage,
-        page: page 
-      })
+    const url = `${API_BASE}/api/search/hybrid?query=${encodeURIComponent(currentQuery)}&page=${page}&limit=${itemsPerPage}`;
+    console.log(`[Fetch] 🌐 URL: ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'X-API-Key': API_KEY }
     });
     
     if (!response.ok) {
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
     const data = await response.json();
     
+    console.log(`[Fetch] ✅ Respuesta:`, {
+      success: data.success,
+      source: data.source,
+      cached: data.cached,
+      returned: data.returned,
+      batch: data.batch?.number,
+      prefetchRecommended: data.prefetch?.recommended
+    });
+    
     if (data.success && data.vehicles && data.vehicles.length > 0) {
       currentVehicles = data.vehicles;
       currentPage = page;
+      batchInfo = data.batch;
       
-      // Calcular total de páginas basado en hasMore
-      const hasMore = data.pagination?.hasMore || false;
-      totalPages = hasMore ? page + 1 : page;
+      // Calculate total pages from batch info
+      if (batchInfo) {
+        const estimatedTotalPages = (batchInfo.number + 1) * batchInfo.totalPagesInBatch;
+        totalPages = estimatedTotalPages;
+        console.log(`[Fetch] 📊 Batch ${batchInfo.number}: ${batchInfo.totalInBatch} items, ${batchInfo.totalPagesInBatch} páginas, estimado total: ${estimatedTotalPages}`);
+      }
       
-      displayResults(data);
+      displayResults();
       updatePaginationControls();
+      
+      // Auto-prefetch if recommended
+      if (data.prefetch?.recommended && !prefetchInProgress) {
+        console.log(`[Prefetch] 🚀 Recomendado: ${data.prefetch.url}`);
+        triggerPrefetch(data.prefetch.url);
+      }
     } else if (page === 1) {
+      console.log(`[Fetch] ⚠️ Sin resultados en página 1`);
       showError('No se encontraron vehículos para esta búsqueda');
       hidePaginationControls();
     } else {
+      console.log(`[Fetch] ⚠️ Sin más resultados`);
       showError('No hay más resultados disponibles');
       totalPages = page - 1;
       updatePaginationControls();
     }
     
   } catch (error) {
-    console.error('Error en la búsqueda:', error);
+    console.error('[Fetch] ❌ Error:', error);
     showError('Error al realizar la búsqueda: ' + error.message);
     hidePaginationControls();
   } finally {
@@ -88,19 +121,84 @@ async function fetchPage(page) {
   }
 }
 
+// Trigger prefetch in background
+async function triggerPrefetch(url) {
+  if (prefetchInProgress) {
+    console.log(`[Prefetch] ⏸️ Ya hay un prefetch en progreso`);
+    return;
+  }
+  
+  prefetchInProgress = true;
+  const banner = document.getElementById('prefetch-status');
+  banner.classList.remove('hidden');
+  
+  console.log(`[Prefetch] 🔄 Iniciando prefetch...`);
+  
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'X-API-Key': API_KEY }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log(`[Prefetch] ✅ Completado:`, data.summary);
+    
+  } catch (error) {
+    console.error('[Prefetch] ❌ Error:', error);
+  } finally {
+    prefetchInProgress = false;
+    setTimeout(() => banner.classList.add('hidden'), 2000);
+  }
+}
+
 // Next page
 function nextPage() {
   if (currentPage < totalPages) {
-    fetchPage(currentPage + 1);
-    document.getElementById('results-header').scrollIntoView({ behavior: 'smooth' });
+    const nextPageNum = currentPage + 1;
+    console.log(`[Navigation] ➡️ Ir a página ${nextPageNum}`);
+    fetchPage(nextPageNum);
+    document.getElementById('results-header')?.scrollIntoView({ behavior: 'smooth' });
   }
 }
 
 // Previous page
 function previousPage() {
   if (currentPage > 1) {
-    fetchPage(currentPage - 1);
-    document.getElementById('results-header').scrollIntoView({ behavior: 'smooth' });
+    const prevPageNum = currentPage - 1;
+    console.log(`[Navigation] ⬅️ Ir a página ${prevPageNum}`);
+    fetchPage(prevPageNum);
+    document.getElementById('results-header')?.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+// Go to first page
+function goToFirstPage() {
+  if (currentPage !== 1) {
+    console.log(`[Navigation] ⏮️ Ir a primera página`);
+    fetchPage(1);
+    document.getElementById('results-header')?.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+// Go to last page
+function goToLastPage() {
+  if (currentPage !== totalPages && totalPages > 0) {
+    console.log(`[Navigation] ⏭️ Ir a última página ${totalPages}`);
+    fetchPage(totalPages);
+    document.getElementById('results-header')?.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+// Go to specific page
+function goToPage(pageNum) {
+  if (pageNum >= 1 && pageNum <= totalPages && pageNum !== currentPage) {
+    console.log(`[Navigation] 🔢 Ir a página ${pageNum}`);
+    fetchPage(pageNum);
+    document.getElementById('results-header')?.scrollIntoView({ behavior: 'smooth' });
   }
 }
 
@@ -109,19 +207,107 @@ function updatePaginationControls() {
   const paginationControls = document.getElementById('pagination-controls');
   const prevBtn = document.getElementById('prev-page-btn');
   const nextBtn = document.getElementById('next-page-btn');
-  const paginationInfo = document.getElementById('pagination-info');
+  const firstBtn = document.getElementById('first-page-btn');
+  const lastBtn = document.getElementById('last-page-btn');
+  const currentPageNum = document.getElementById('current-page-num');
+  const totalPagesNum = document.getElementById('total-pages-num');
+  const pageNumbersContainer = document.getElementById('page-numbers');
+  
+  // Calculate total pages based on store size
+  const storeSize = Object.keys(allVehicles).length;
+  const calculatedPages = Math.ceil(storeSize / itemsPerPage);
+  
+  // Update totalPages if we have more vehicles in store
+  if (calculatedPages > totalPages) {
+    totalPages = calculatedPages;
+  }
   
   // Show controls if there are results
-  if (currentVehicles.length > 0) {
+  if (Object.keys(allVehicles).length > 0) {
     paginationControls.classList.remove('hidden');
     
     // Update button states
     prevBtn.disabled = currentPage === 1;
     nextBtn.disabled = currentPage >= totalPages;
+    firstBtn.disabled = currentPage === 1;
+    lastBtn.disabled = currentPage >= totalPages;
     
     // Update info text
-    paginationInfo.textContent = `Página ${currentPage}`;
+    currentPageNum.textContent = currentPage;
+    totalPagesNum.textContent = totalPages;
+    
+    // Generate page numbers
+    generatePageNumbers(pageNumbersContainer);
   }
+}
+
+// Generate page number buttons with smart pagination
+function generatePageNumbers(container) {
+  container.innerHTML = '';
+  
+  const maxVisiblePages = 7; // Show max 7 page buttons
+  let startPage = 1;
+  let endPage = totalPages;
+  
+  if (totalPages > maxVisiblePages) {
+    // Calculate range around current page
+    const halfVisible = Math.floor(maxVisiblePages / 2);
+    
+    if (currentPage <= halfVisible + 1) {
+      // Near the start
+      endPage = maxVisiblePages - 1;
+    } else if (currentPage >= totalPages - halfVisible) {
+      // Near the end
+      startPage = totalPages - maxVisiblePages + 2;
+    } else {
+      // In the middle
+      startPage = currentPage - halfVisible + 1;
+      endPage = currentPage + halfVisible - 1;
+    }
+  }
+  
+  // Always show first page
+  if (startPage > 1) {
+    addPageButton(container, 1);
+    if (startPage > 2) {
+      addEllipsis(container);
+    }
+  }
+  
+  // Show page range
+  for (let i = startPage; i <= endPage; i++) {
+    addPageButton(container, i);
+  }
+  
+  // Always show last page
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      addEllipsis(container);
+    }
+    addPageButton(container, totalPages);
+  }
+}
+
+// Add page number button
+function addPageButton(container, pageNum) {
+  const btn = document.createElement('button');
+  btn.className = 'page-number-btn';
+  btn.textContent = pageNum;
+  btn.addEventListener('click', () => goToPage(pageNum));
+  
+  if (pageNum === currentPage) {
+    btn.classList.add('active');
+  }
+  
+  container.appendChild(btn);
+}
+
+// Add ellipsis
+function addEllipsis(container) {
+  const ellipsis = document.createElement('span');
+  ellipsis.className = 'page-ellipsis';
+  ellipsis.textContent = '...';
+  container.appendChild(ellipsis);
 }
 
 // Hide pagination controls
@@ -131,26 +317,47 @@ function hidePaginationControls() {
 }
 
 // Display search results
-function displayResults(data) {
+function displayResults(page) {
   const resultsHeader = document.getElementById('results-header');
   const resultsStats = document.getElementById('results-stats');
   const container = document.getElementById('vehicles-list-container');
   
+  // Get all vehicles from store as array
+  const allVehiclesArray = Object.values(allVehicles);
+  
+  // Calculate slice indices for current page
+  const startIdx = (page - 1) * itemsPerPage;
+  const endIdx = startIdx + itemsPerPage;
+  
+  console.log(`[Display] 📄 Page ${page}: slicing [${startIdx}:${endIdx}] from ${allVehiclesArray.length} total vehicles`);
+  
+  // Slice for current page
+  const paginatedVehicles = allVehiclesArray.slice(startIdx, endIdx);
+  
+  console.log(`[Display] 🚗 Showing ${paginatedVehicles.length} vehicles on page ${page}`);
+  
+  if (paginatedVehicles.length > 0) {
+    const lotNumbers = paginatedVehicles.slice(0, 3).map(v => v.lot_number);
+    console.log(`[Display] 🔢 First 3 lot numbers:`, lotNumbers);
+  }
+  
   // Show header
   resultsHeader.classList.remove('hidden');
-  resultsStats.textContent = `Se encontraron ${data.vehicles.length} vehículo(s)`;
+  resultsStats.textContent = `Mostrando ${paginatedVehicles.length} de ${allVehiclesArray.length} vehículo(s) encontrados`;
   
   // Clear previous results
   container.innerHTML = '';
   
   // Display each vehicle
-  data.vehicles.forEach((vehicle, index) => {
-    const card = createVehicleCard(vehicle, index);
+  paginatedVehicles.forEach((vehicle, index) => {
+    const card = createVehicleCard(vehicle, startIdx + index);
     container.appendChild(card);
   });
   
   // Scroll to results
-  resultsHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (page > 1) {
+    resultsHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 // Create vehicle card
@@ -248,7 +455,7 @@ function createVehicleCard(vehicle, index) {
       </div>
       ` : ''}
       
-      <button class="btn-view-details" onclick="event.stopPropagation(); showVehicleDetail(currentVehicles[${index}])">
+      <button class="btn-view-details" onclick="event.stopPropagation(); showVehicleDetail(allVehicles['${vehicle.lot_number}'])">
         Ver Detalles Completos →
       </button>
     </div>

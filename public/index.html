@@ -17,7 +17,6 @@
         <form id="search-form">
           <div class="search-input-wrapper">
             <input type="text" id="query" name="query" placeholder="Busca por marca, modelo o palabra clave..." required>
-            <input type="number" id="count" name="count" placeholder="Cantidad por página" min="1" max="20" value="12">
             <button type="submit" id="submit-btn">
               <span class="btn-text">Buscar</span>
               <span class="btn-loading hidden">🔄</span>
@@ -25,6 +24,7 @@
           </div>
         </form>
         <p class="search-subtitle">Busca en nuestro inventario y en los principales portales de subastas de EE. UU.</p>
+        <p class="search-subtitle" style="font-size: 0.9em; color: #666;">10 vehículos por página con prefetch inteligente</p>
       </div>
     </section>
 
@@ -33,6 +33,9 @@
       <div id="loading-indicator" class="hidden">
         <div class="loading-spinner"></div>
         <p>Buscando vehículos... Esto puede tomar unos momentos.</p>
+      </div>
+      <div id="prefetch-status" class="prefetch-banner hidden">
+        🔄 Cargando página siguiente en segundo plano...
       </div>
       <div id="search-results-summary" class="hidden"></div>
     </div>
@@ -48,9 +51,27 @@
       <!-- Pagination Controls -->
       <div id="pagination-controls" class="hidden">
         <div class="pagination-container">
-          <button id="prev-page-btn" class="pagination-btn" onclick="previousPage()">← Anterior</button>
-          <div id="pagination-info" class="pagination-info">Página 1</div>
-          <button id="next-page-btn" class="pagination-btn" onclick="nextPage()">Siguiente →</button>
+          <button id="first-page-btn" class="pagination-btn pagination-btn-edge" title="Primera página">
+            <span class="btn-text">⏮️ Primera</span>
+          </button>
+          <button id="prev-page-btn" class="pagination-btn" title="Página anterior">
+            ← Anterior
+          </button>
+          
+          <!-- Page Numbers Container -->
+          <div id="page-numbers" class="page-numbers">
+            <!-- Dynamically generated page numbers -->
+          </div>
+          
+          <button id="next-page-btn" class="pagination-btn" title="Página siguiente">
+            Siguiente →
+          </button>
+          <button id="last-page-btn" class="pagination-btn pagination-btn-edge" title="Última página">
+            <span class="btn-text">Última ⏭️</span>
+          </button>
+        </div>
+        <div id="pagination-info" class="pagination-info">
+          Página <span id="current-page-num">1</span> de <span id="total-pages-num">1</span>
         </div>
       </div>
     </section>
@@ -65,6 +86,6 @@
 
   </main>
 
-  <script src="script.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -1,283 +1,315 @@
 # Contributing to ScraptPress
 
-Gracias por tu interés en contribuir a ScraptPress! Esta guía te ayudará a entender la estructura del proyecto y las convenciones que seguimos.
+¡Gracias por tu interés en contribuir a ScraptPress! 🎉
 
 ## 📋 Tabla de Contenidos
 
-- [Configuración del Entorno](#configuración-del-entorno)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Convenciones de Código](#convenciones-de-código)
-- [Flujo de Desarrollo](#flujo-de-desarrollo)
+- [Código de Conducta](#código-de-conducta)
+- [Cómo Contribuir](#cómo-contribuir)
+- [Reportar Bugs](#reportar-bugs)
+- [Sugerir Mejoras](#sugerir-mejoras)
+- [Pull Requests](#pull-requests)
+- [Guía de Estilo](#guía-de-estilo)
+- [Configuración de Desarrollo](#configuración-de-desarrollo)
 - [Testing](#testing)
-- [Commits y Pull Requests](#commits-y-pull-requests)
 
-## 🛠️ Configuración del Entorno
+## 📜 Código de Conducta
 
-### Prerequisites
+Este proyecto sigue un código de conducta que todos los contribuyentes deben respetar:
 
-- Node.js 20+
-- Docker Desktop (para Redis)
-- Cuenta de Firebase
-- Cuenta de Sentry (opcional)
+- **Sé respetuoso**: Trata a todos con respeto y profesionalismo
+- **Sé constructivo**: Las críticas deben ser constructivas
+- **Sé colaborativo**: Trabaja en equipo y ayuda a otros
+- **Sé paciente**: Recuerda que todos estamos aprendiendo
 
-### Setup
+## 🤝 Cómo Contribuir
+
+### 1. Fork el Repositorio
 
 ```bash
-# 1. Clonar repositorio
-git clone https://github.com/RenePerezRodriguez/ScraptPress.git
+# Haz fork desde GitHub UI
+# Luego clona tu fork
+git clone https://github.com/TU-USUARIO/ScraptPress.git
 cd ScraptPress
-
-# 2. Instalar dependencias
-npm install
-
-# 3. Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tus credenciales
-
-# 4. Iniciar Redis
-docker compose -f docker-compose.redis.yml up -d
-
-# 5. Ejecutar en desarrollo
-npm run dev
 ```
 
-## 📦 Estructura del Proyecto
+### 2. Crea una Rama
 
-```
-src/
-├── index.ts                 # Punto de entrada de la aplicación
-├── api/                     # Capa de API
-│   ├── controllers/        # Lógica de negocio de endpoints
-│   ├── routes/             # Definición de rutas
-│   ├── middleware/         # Middlewares (auth, validation, rate limiting)
-│   └── utils/              # Utilidades de API
-├── services/               # Lógica de negocio
-│   ├── scrapers/          # Implementaciones de scraping
-│   ├── repositories/      # Acceso a datos (Firestore)
-│   ├── cache.service.ts   # Gestión de cache (Redis)
-│   └── monitoring.service.ts  # Métricas y monitoreo
-├── config/                 # Configuración
-│   ├── firebase.ts        # Inicialización de Firestore
-│   ├── sentry.ts          # Error tracking
-│   └── logger.ts          # Sistema de logging
-└── types/                  # Definiciones TypeScript
+```bash
+# Para nuevas features
+git checkout -b feature/nombre-feature
+
+# Para bugfixes
+git checkout -b fix/descripcion-bug
+
+# Para documentación
+git checkout -b docs/descripcion-cambio
 ```
 
-### Conceptos Clave
+### 3. Haz tus Cambios
 
-#### 1. **Controllers** (src/api/controllers/)
-Manejan las requests HTTP y coordinan los servicios.
+- Escribe código limpio y siguiendo la [Guía de Estilo](#guía-de-estilo)
+- Añade tests para nuevo código
+- Actualiza la documentación si es necesario
+- Asegúrate de que todos los tests pasen
 
-```typescript
-// Ejemplo: scraper.controller.ts
-class ScraperController {
-  async api(req: Request, res: Response) {
-    // 1. Validar input
-    // 2. Llamar servicios
-    // 3. Formatear respuesta
-    // 4. Manejar errores
-  }
-}
+### 4. Commit
+
+```bash
+# Staging
+git add .
+
+# Commit con mensaje descriptivo
+git commit -m "feat: descripción del cambio"
 ```
 
-#### 2. **Services** (src/services/)
-Contienen la lógica de negocio reutilizable.
+**Formato de commits** (Conventional Commits):
+- `feat:` Nueva funcionalidad
+- `fix:` Corrección de bug
+- `docs:` Cambios en documentación
+- `style:` Cambios de formato (no afectan lógica)
+- `refactor:` Refactorización de código
+- `test:` Añadir o modificar tests
+- `chore:` Tareas de mantenimiento
 
-```typescript
-// Ejemplo: cache.service.ts
-export class CacheService {
-  async get(key: string): Promise<any> {
-    // Lógica de cache
-  }
-}
+### 5. Push y Pull Request
+
+```bash
+# Push a tu fork
+git push origin feature/nombre-feature
+
+# Luego crea Pull Request desde GitHub UI
 ```
 
-#### 3. **Repositories** (src/services/repositories/)
-Abstracción de acceso a datos (Firestore).
+## 🐛 Reportar Bugs
 
-```typescript
-// Ejemplo: vehicle.repository.ts
-export class VehicleRepository {
-  static async upsertVehicle(vehicle: any): Promise<boolean> {
-    // Guardar en Firestore
-  }
-}
+### Antes de Reportar
+
+1. **Busca** en [Issues existentes](https://github.com/RenePerezRodriguez/ScraptPress/issues)
+2. **Verifica** que estés usando la última versión
+3. **Reproduce** el bug de forma consistente
+
+### Template de Bug Report
+
+```markdown
+**Descripción del Bug**
+Descripción clara y concisa del problema.
+
+**Pasos para Reproducir**
+1. Ir a '...'
+2. Hacer click en '...'
+3. Ver error
+
+**Comportamiento Esperado**
+Lo que debería suceder.
+
+**Comportamiento Actual**
+Lo que realmente sucede.
+
+**Screenshots**
+Si aplica, añade screenshots.
+
+**Entorno**
+- OS: [e.g. Windows 11]
+- Node: [e.g. 20.10.0]
+- Versión: [e.g. 1.1.0]
+
+**Información Adicional**
+Contexto adicional del problema.
 ```
 
-#### 4. **Middleware** (src/api/middleware/)
-Funciones que procesan requests antes de llegar a controllers.
+## 💡 Sugerir Mejoras
 
-```typescript
-// Ejemplo: auth.ts
-export const requireApiKey = (req, res, next) => {
-  // Validar API key
-  next();
-};
+### Template de Feature Request
+
+```markdown
+**¿El feature está relacionado a un problema?**
+Descripción clara del problema. Ej: "Siempre me frustra cuando [...]"
+
+**Describe la Solución que Te Gustaría**
+Descripción clara de lo que quieres que suceda.
+
+**Describe Alternativas Consideradas**
+Otras soluciones o features consideradas.
+
+**Contexto Adicional**
+Añade cualquier otro contexto o screenshots.
 ```
 
-## 📝 Convenciones de Código
+## 🔄 Pull Requests
+
+### Checklist Antes de Enviar
+
+- [ ] El código sigue la [Guía de Estilo](#guía-de-estilo)
+- [ ] He comentado mi código, especialmente en áreas difíciles
+- [ ] He actualizado la documentación correspondiente
+- [ ] Mis cambios no generan nuevas warnings
+- [ ] He añadido tests que prueban que mi fix es efectivo o que mi feature funciona
+- [ ] Tests nuevos y existentes pasan localmente
+- [ ] He hecho commits siguiendo Conventional Commits
+- [ ] He actualizado el CHANGELOG.md (si aplica)
+
+### Process de Review
+
+1. Un maintainer revisará tu PR dentro de 48-72 horas
+2. Pueden solicitar cambios o hacer preguntas
+3. Una vez aprobado, se hará merge a `main`
+4. Tu contribución aparecerá en el siguiente release
+
+## 📝 Guía de Estilo
 
 ### TypeScript
 
-- **Usa interfaces** para definir tipos de datos
-- **Evita `any`** siempre que sea posible
-- **Exports nombrados** en lugar de default exports (excepto controllers)
-
 ```typescript
-// ✅ Bien
+// ✅ BUENO
 export interface VehicleData {
-  lot_number: string;
+  lotNumber: string;
+  vin: string;
+  year: string;
   make: string;
-  model: string;
 }
 
-// ❌ Evitar
-export default interface VehicleData { }
+// ❌ MALO
+export interface vehicle_data {
+  lot_number: string;
+  VIN: string;
+  Year: string;
+  make: string;
+}
 ```
 
-### Naming Conventions
+### Nombres de Variables
 
-- **Archivos**: kebab-case (`vehicle.repository.ts`)
-- **Clases**: PascalCase (`VehicleRepository`)
-- **Funciones/Variables**: camelCase (`getUserById`)
-- **Constantes**: UPPER_SNAKE_CASE (`MAX_ITEMS`)
-- **Interfaces**: PascalCase con sufijo descriptivo (`VehicleData`, `ApiResponse`)
+- **camelCase** para variables y funciones: `vehicleData`, `fetchVehicles()`
+- **PascalCase** para clases e interfaces: `VehicleRepository`, `CopartPlatform`
+- **SCREAMING_SNAKE_CASE** para constantes: `MAX_ITEMS_PER_REQUEST`, `API_KEY`
 
-### Imports
-
-Organizar imports en este orden:
+### Comentarios
 
 ```typescript
-// 1. Node built-ins
-import { Request, Response } from 'express';
-
-// 2. External packages
-import { z } from 'zod';
-
-// 3. Internal modules
-import { Logger } from '../../config/logger';
-import { VehicleRepository } from '../../services/repositories/vehicle.repository';
-
-// 4. Types
-import type { VehicleData } from '../../types/vehicle.types';
+/**
+ * Extrae datos de vehículo desde página de Copart
+ * @param page - Página de Playwright
+ * @param lotNumber - Número de lote del vehículo
+ * @returns Datos completos del vehículo
+ */
+async function extractVehicleData(page: Page, lotNumber: string): Promise<VehicleData> {
+  // Comentarios inline para lógica compleja
+  const vin = await extractVIN(page);
+  
+  return { lotNumber, vin, /* ... */ };
+}
 ```
 
-### Logging
+### Estructura de Archivos
 
-**NUNCA usar `console.log`**. Usar siempre el Logger:
+```
+src/
+├── api/
+│   ├── controllers/    # Lógica de negocio
+│   ├── routes/         # Definición de rutas
+│   ├── middleware/     # Middleware Express
+│   └── utils/          # Utilidades
+├── services/           # Servicios (scraping, cache, etc.)
+├── config/             # Configuración (Firebase, Sentry, etc.)
+└── types/              # Tipos TypeScript
+```
+
+### Import Order
 
 ```typescript
-import { Logger } from '../config/logger';
+// 1. Node modules
+import express from 'express';
+import path from 'path';
 
-const logger = Logger.getInstance();
+// 2. Tipos
+import { VehicleData } from '../types/vehicle.types';
 
-logger.info('Operation successful', { vehicleId: '123' });
-logger.error('Operation failed', error);
-logger.warn('Deprecated API used');
-logger.debug('Detailed debug info');
+// 3. Services
+import { CopartPlatform } from '../services/scrapers/platforms/copart/copart.platform';
+
+// 4. Utils
+import { asyncHandler } from '../utils/asyncHandler';
 ```
 
 ### Error Handling
 
-- Usar try-catch en funciones async
-- Capturar errores en Sentry para monitoring
-- Nunca exponer stack traces al cliente
-
 ```typescript
+// ✅ BUENO - Errores específicos
 try {
-  const result = await someAsyncOperation();
-  return result;
+  await scrapeVehicle(lotNumber);
 } catch (error) {
-  logger.error('Operation failed:', error);
-  SentryService.captureException(error);
-  throw new Error('User-friendly error message');
+  logger.error('SCRAPE', 'Error scraping vehicle', { 
+    lotNumber, 
+    error: error instanceof Error ? error.message : 'Unknown error' 
+  });
+  throw new Error(`Failed to scrape vehicle ${lotNumber}`);
+}
+
+// ❌ MALO - Error genérico
+try {
+  await scrapeVehicle(lotNumber);
+} catch (error) {
+  console.log('error', error);
+  throw error;
 }
 ```
 
-### Comments
-
-- Comentarios en inglés o español consistentemente
-- JSDoc para funciones públicas
-- Comentarios inline solo cuando la lógica no es obvia
+### Logging
 
 ```typescript
-/**
- * Guarda un vehículo en Firestore
- * @param vehicle - Datos del vehículo a guardar
- * @returns true si se guardó exitosamente
- */
-static async upsertVehicle(vehicle: VehicleData): Promise<boolean> {
-  // Implementation
-}
+// ✅ BUENO - Logger estructurado
+logger.info('SEARCH', 'Nueva búsqueda iniciada', { query: 'toyota', page: 1 });
+logger.success('BATCH', 'Batch completado', { size: 100, duration: 240 });
+logger.warn('RATE-LIMIT', 'Rate limit detectado', { remaining: 0 });
+logger.error('SCRAPE', 'Error en scraping', error);
+
+// ❌ MALO - Console.log directo
+console.log('search started');
+console.log('done');
 ```
 
-## 🔄 Flujo de Desarrollo
+## 🔧 Configuración de Desarrollo
 
-### 1. Crear Branch
+### 1. Instalar Dependencias
 
 ```bash
-git checkout -b feature/descripcion-corta
-# o
-git checkout -b fix/issue-123
+npm install
 ```
 
-### 2. Desarrollo
+### 2. Configurar Variables de Entorno
 
 ```bash
-# Ejecutar en modo desarrollo (hot reload)
+cp .env.example .env
+# Editar .env con tus credenciales
+```
+
+### 3. Iniciar Redis (Docker)
+
+```bash
+docker compose -f docker-compose.redis.yml up -d
+```
+
+### 4. Configurar Firebase
+
+1. Crear proyecto en Firebase Console
+2. Descargar service account JSON
+3. Colocar en raíz del proyecto
+4. Actualizar `FIREBASE_SERVICE_ACCOUNT_PATH` en `.env`
+
+### 5. Ejecutar en Desarrollo
+
+```bash
 npm run dev
-
-# Verificar tipos TypeScript
-npm run typecheck
-
-# Ejecutar tests
-npm test
-
-# Ver cobertura
-npm run test:coverage
 ```
 
-### 3. Build
+### 6. Build
 
 ```bash
-# Compilar TypeScript
 npm run build
-
-# Verificar que compila sin errores
-npm run typecheck
 ```
 
 ## 🧪 Testing
-
-### Estructura de Tests
-
-```
-tests/
-├── unit/                    # Tests unitarios
-│   ├── services/
-│   ├── repositories/
-│   └── middleware/
-└── integration/             # Tests de integración
-    └── api.test.ts
-```
-
-### Escribir Tests
-
-```typescript
-describe('VehicleRepository', () => {
-  describe('upsertVehicle', () => {
-    it('should save a vehicle successfully', async () => {
-      const vehicle = { /* datos de prueba */ };
-      const result = await VehicleRepository.upsertVehicle(vehicle);
-      expect(result).toBe(true);
-    });
-
-    it('should return false on error', async () => {
-      // Test error handling
-    });
-  });
-});
-```
 
 ### Ejecutar Tests
 
@@ -286,89 +318,58 @@ describe('VehicleRepository', () => {
 npm test
 
 # Tests específicos
-npm test -- vehicle.repository.test.ts
+npm test -- vehicle.repository
 
-# Watch mode (útil durante desarrollo)
-npm run test:watch
-
-# Con cobertura
-npm run test:coverage
+# Con coverage
+npm test -- --coverage
 ```
 
-### Coverage Target
+### Escribir Tests
 
-- **Objetivo mínimo**: 70%
-- **Priorizar**: Repositories, Services, Controllers
-- **Opcional**: Middleware, Utils
+```typescript
+import { VehicleRepository } from '../vehicle.repository';
 
-## 📤 Commits y Pull Requests
-
-### Commit Messages
-
-Seguir Conventional Commits:
-
+describe('VehicleRepository', () => {
+  describe('upsertVehicle', () => {
+    it('should insert new vehicle', async () => {
+      const vehicle = {
+        lot_number: '12345',
+        vin: 'ABC123',
+        // ...
+      };
+      
+      await repo.upsertVehicle(vehicle);
+      
+      const retrieved = await repo.getVehicleByLot('12345');
+      expect(retrieved).toMatchObject(vehicle);
+    });
+  });
+});
 ```
-feat: agregar endpoint para búsqueda de vehículos
-fix: corregir error de cache en Redis
-docs: actualizar README con instrucciones de Firebase
-refactor: simplificar lógica de scraping
-test: agregar tests para VehicleRepository
-chore: actualizar dependencias
-```
 
-### Pull Request Process
+### Coverage Goals
 
-1. **Asegurar que todo compila**:
-   ```bash
-   npm run build
-   npm run typecheck
-   ```
+- **Statements**: > 80%
+- **Branches**: > 75%
+- **Functions**: > 80%
+- **Lines**: > 80%
 
-2. **Tests pasando**:
-   ```bash
-   npm test
-   ```
+## 📚 Recursos Adicionales
 
-3. **Actualizar documentación** si es necesario
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+- [Express.js Guide](https://expressjs.com/en/guide/routing.html)
+- [Playwright Documentation](https://playwright.dev/docs/intro)
+- [Firebase Firestore](https://firebase.google.com/docs/firestore)
+- [Conventional Commits](https://www.conventionalcommits.org/)
 
-4. **Crear PR** con descripción clara:
-   - Qué cambia
-   - Por qué es necesario
-   - Cómo probarlo
+## 📞 Contacto
 
-5. **Review** - esperar aprobación antes de merge
+Si tienes preguntas sobre cómo contribuir:
 
-### PR Checklist
+1. Abre un [GitHub Issue](https://github.com/RenePerezRodriguez/ScraptPress/issues)
+2. Revisa la [Documentación](docs/README.md)
+3. Consulta el [README principal](README.md)
 
-- [ ] Build compila sin errores
-- [ ] Tests pasando
-- [ ] No hay console.logs (usar Logger)
-- [ ] Documentación actualizada
-- [ ] Commit messages descriptivos
-- [ ] Código formateado consistentemente
+---
 
-## 🔧 Herramientas Útiles
-
-### Debugging
-
-- **VS Code**: Usar debugger integrado
-- **Logs**: Revisar en terminal con `npm run dev`
-- **Sentry**: Ver errores en producción
-
-### Monitoring
-
-- **Firestore Console**: Ver datos guardados
-- **Sentry Dashboard**: Tracking de errores
-- **Redis CLI**: `docker exec -it scraptpress-redis redis-cli`
-
-## ❓ Preguntas
-
-Si tienes dudas sobre el proyecto o cómo contribuir:
-
-1. Revisar la [documentación](docs/)
-2. Buscar en issues existentes
-3. Crear un nuevo issue con tu pregunta
-
-## 📜 Licencia
-
-Al contribuir, aceptas que tu código estará bajo la misma licencia del proyecto (ISC).
+¡Gracias por contribuir a ScraptPress! 🚗💨

@@ -5,10 +5,12 @@
 ## ✨ Características Principales
 
 - 🔍 **Scraping Inteligente Híbrido** - Cache first con fallback a scraping en tiempo real
+- 🚀 **Batching Optimizado** - Scraping por lotes de 50 vehículos para máxima eficiencia
+- 🎯 **Prefetch Inteligente** - Carga anticipada de páginas siguientes en background
 - ⚡ **Scraping Paralelo** - Procesa 3 vehículos simultáneamente (3-5x más rápido)
 - 🤖 **Anti-Detección Avanzada** - Bypass completo de Incapsula/WAF de Copart
 - 🔥 **Firebase Firestore** - Base de datos NoSQL en la nube con índices compuestos optimizados
-- 📄 **Paginación Flexible** - 1-20 vehículos por página, navegación instantánea desde caché
+- 📄 **Paginación Inteligente** - 10 items por página frontend, batches de 50 en backend
 - 🔑 **Extracción Completa de VIN** - 100% de vehículos con VIN completo (sin asteriscos)
 - 📸 **Galería Completa** - 12+ imágenes en 3 resoluciones (thumbnail, full, high-res) para TODOS los vehículos
 - 🎬 **Videos de Motor** - Extracción automática de videos cuando están disponibles
@@ -18,25 +20,31 @@
 - 📊 **Monitoreo Completo** - Sentry error tracking, métricas en tiempo real
 - ☁️ **Cloud Ready** - Optimizado para Cloud Run con headless mode
 
-## 🚀 Rendimiento
-
-### Métricas de Performance
+## ⚡ Rendimiento
 
 | Operación | Tiempo | Descripción |
 |-----------|--------|-------------|
-| **Cache Hit** | < 2s | Búsqueda desde Firestore (instantánea) |
-| **Warm-up Cache** | < 500ms | Primera búsqueda tras scraping reciente |
-| **Fresh Scrape (2 vehículos)** | ~120s | Scraping paralelo con datos completos |
-| **Fresh Scrape (20 vehículos)** | ~8-10 min | 20 vehículos con VIN, imágenes y highlights |
-| **Paginación** | < 1s | Navegación entre páginas (desde caché) |
+| **Cache Hit (Redis)** | < 100ms | Instantáneo |
+| **Cache Hit (Firestore)** | < 2s | Muy rápido |
+| **Scraping 100 vehículos** | ~4-5 min | Un batch completo |
+| **Navegación (cached)** | < 100ms | Entre páginas del mismo batch |
+| **Prefetch** | Background | No bloquea UI |
+| **Espera de Lock** | 30s-4min | Si otro proceso está scrapeando el mismo batch |
 
-### Optimizaciones Implementadas
+### Optimizaciones v2.1
 
-- ✅ **Scraping Paralelo** - 3 vehículos simultáneos con páginas dedicadas
-- ✅ **Tiempos de Espera Optimizados** - `waitForTimeout(500ms)` vs `2000ms` anterior
-- ✅ **Estrategia de Carga Rápida** - `domcontentloaded` vs `networkidle`
-- ✅ **Interceptores por Página** - Captura de API de imágenes en cada página paralela
-- ✅ **Índices Compuestos Firestore** - Búsquedas optimizadas en < 2s
+- ✅ **Batching 100 vehículos** - Vista Clásica Copart (1 página = 100 resultados)
+- ✅ **Navegación Inteligente de Páginas** - 3 estrategias de fallback para máxima confiabilidad
+  - Estrategia 1: Click directo en número de página (más rápido)
+  - Estrategia 2: Click en botón "Siguiente" (páginas lejanas)
+  - Estrategia 3: URL directa (fallback de emergencia)
+- ✅ **Prefetch Inteligente** - Trigger en páginas 3+, 13+, 23+ (configurable)
+- ✅ **Scraping Paralelo** - 3 vehículos con páginas dedicadas (seguro, probado)
+- ✅ **Sistema de Locks** - Evita scraping duplicado con locks en memoria + espera inteligente
+- ✅ **Rate Limiting** - 10/min, 3 concurrentes, protección anti-ban
+- ✅ **Cache Multi-Nivel** - Redis + Firestore con TTL configurables
+- ✅ **Timeouts Optimizados** - 500ms vs 2000ms (8x más rápido)
+- ✅ **API Interceptors** - Captura de imágenes desde API interna de Copart
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -51,7 +59,7 @@
 - **Seguridad**: Helmet, CORS, Zod, API key authentication
 - **Testing**: Jest con 54 tests (100% passing)
 
-### Flujo de Datos Híbrido
+### Flujo de Datos Híbrido con Sistema de Locks
 
 ```
 Usuario → API Request → Búsqueda en Firestore Cache
@@ -60,12 +68,20 @@ Usuario → API Request → Búsqueda en Firestore Cache
                       /                  \
                    SÍ                    NO
                     ↓                     ↓
-            Retornar Cache         Scraping Copart
-              (< 2s)              (con paralelización)
-                                        ↓
-                                Guardar en Firestore
-                                        ↓
-                                 Retornar Datos
+            Retornar Cache      ¿Lock activo para este batch?
+              (< 2s)              /                      \
+                               SÍ                        NO
+                                ↓                         ↓
+                     Esperar lock (max 6 min)    Adquirir lock
+                     ↓ (lock liberado)              ↓
+                  Buscar en cache           Scraping Copart
+                     ↓                      (paralelización)
+                Retornar datos                  ↓
+                 (instantáneo)         Guardar en Firestore
+                                              ↓
+                                       Liberar lock
+                                              ↓
+                                       Retornar Datos
 ```
 
 ### Estructura de Datos (Firestore)
@@ -95,92 +111,46 @@ search_tokens: [
 // Permite: query="mclaren" → encuentra "MCLAREN AUTOMOTIVE"
 ```
 
-## 📡 API Endpoints
+## 🎯 Endpoints Principales
 
-### 🔍 GET /api/search/hybrid (Principal)
+### POST /api/search/intelligent
 
-Búsqueda inteligente con cache first y fallback a scraping.
+**Búsqueda inteligente con batching de 100 vehículos**
 
-**Request:**
-```http
-GET /api/search/hybrid?query=toyota&limit=10&page=1
-Headers: X-API-Key: your-api-key-here
+```bash
+curl -X POST http://localhost:3000/api/search/intelligent \
+  -H "X-API-Key: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"toyota","page":1}'
 ```
 
-**Parámetros:**
-- `query` *(requerido)*: Marca, modelo, año, etc.
-- `limit` *(opcional)*: 1-20 vehículos/página (default: 10)
-- `page` *(opcional)*: Número de página (default: 1)
-- `force_fresh` *(opcional)*: Forzar scraping (`true`/`false`)
-
-**Response (200 OK):**
+**Respuesta**:
 ```json
 {
   "success": true,
-  "source": "firestore",           // "firestore" | "copart"
-  "cached": true,                  // Desde caché
-  "fresh": false,                  // Scraping realizado
-  "query": "toyota",
+  "source": "firestore",
+  "cached": true,
   "page": 1,
   "limit": 10,
   "returned": 10,
-  "total": 34,                     // Total disponible
-  "totalPages": 4,
-  "hasMore": true,
-  "scrapeDurationSeconds": 0,
-  "vehicles": [/* array */],
-  "timestamp": "2025-11-13T..."
+  "batch": {
+    "number": 0,
+    "size": 100,
+    "currentPageInBatch": 1,
+    "totalPagesInBatch": 10
+  },
+  "prefetch": { "recommended": false },
+  "vehicles": [...]
 }
 ```
 
-**Estructura de Vehículo:**
-```json
-{
-  "lot_number": "89659405",
-  "vin": "4T1K31AK2PU******",     // Completo, sin asteriscos
-  "year": "2023",
-  "make": "TOYOTA",
-  "model": "CAMRY",
-  "trim": "SE",
-  "odometer": "75786 mi",
-  "engine": "2.5L 4 Cyl",
-  "transmission": "Automatic",
-  "exterior_color": "WHITE",
-  "primary_damage": "NORMAL WEAR",
-  "current_bid": "$9900",
-  "location": "CA - VAN NUYS",
-  "auction_date": "2025-11-13T17:00:00.000Z",
-  "images_gallery": [             // 12+ imágenes
-    {
-      "thumbnail": "https://.../thb.jpg",
-      "full": "https://.../ful.jpg",
-      "high_res": "https://.../hrs.jpg"
-    }
-  ],
-  "engine_video": "https://.../video.mp4",
-  "highlights": ["Runs and Drives", "Clean Interior"],
-  "copart_url": "https://www.copart.com/lot/89659405"
-}
+### GET /api/health
+
+```bash
+curl http://localhost:3000/api/health
 ```
 
-### 📊 Otras Endpoints
-
-**Solo Caché (< 500ms):**
-```http
-GET /api/search/cached?query=toyota&limit=10&page=1
-```
-
-**Estadísticas:**
-```http
-GET /api/search/stats?query=toyota
-→ { "success": true, "total": 34 }
-```
-
-**Health Check:**
-```http
-GET /api/health
-→ { "status": "healthy", "timestamp": "..." }
-```
+Ver [documentación completa de API](docs/API-REFERENCE.md) para todos los endpoints.
 
 ## 🚀 Inicio Rápido
 
@@ -276,11 +246,13 @@ Invoke-RestMethod -Uri "http://localhost:3000/api/search/hybrid?query=toyota&lim
 ScraptPress/
 ├── src/                    # Código fuente TypeScript
 │   ├── index.ts           # Servidor Express
-│   ├── services/          # Lógica de scraping
-│   │   ├── scrapers/     # Platform scrapers (Copart)
-│   │   ├── repositories/ # Firestore repositories
-│   │   ├── cache.service.ts
-│   │   └── monitoring.service.ts
+   ├── services/          # Lógica de scraping
+   │   ├── scrapers/     # Platform scrapers (Copart)
+   │   ├── repositories/ # Firestore repositories
+   │   ├── cache.service.ts
+   │   ├── scraping-lock.service.ts  # 🆕 Sistema de locks anti-duplicación
+   │   ├── background-scraper.service.ts
+   │   └── monitoring.service.ts
 │   ├── api/               # Controllers, routes y middleware
 │   │   ├── controllers/  # Business logic
 │   │   ├── routes/       # API endpoints
@@ -316,23 +288,22 @@ ScraptPress/
 
 ## 📖 Documentación
 
-### Inicio Rápido
-- **[📚 Índice de Documentación](docs/INDEX.md)** - Punto de entrada a toda la documentación
-- **[⚡ Inicio Rápido](docs/INICIO_RAPIDO.md)** - Instalación en 3 pasos
+### 📚 Guías Principales
 
-### API y Uso
-- **[📘 Guía Completa de la API](docs/GUIA_COMPLETA_API.md)** - Endpoints y ejemplos
-- **[📊 Optimización de Datos](docs/OPTIMIZACION_DATOS.md)** - Estructura de respuestas
+- **[Documentación Completa](docs/README.md)** - Punto de entrada a toda la documentación
+- **[API Reference](docs/API-REFERENCE.md)** - Referencia completa de endpoints
+- **[Sistemas Defensivos](SISTEMAS-DEFENSIVOS.md)** ⭐ Rate Limiter, Proxy Rotator, Queue System
+- **[Configuración Firebase](docs/setup/FIRESTORE-INDEXES.md)** - Índices y configuración
 
-### Técnicas Avanzadas
-- **[🤖 Anti-Bot Detection](docs/ANTI_BOT_DETECTION.md)** - ⭐ **Bypass Incapsula/WAF**
-  - Solución completa para headless mode en Cloud Run
-  - Configuración anti-detección de Playwright
-  - Troubleshooting y optimizaciones
+### 🚀 Inicio Rápido
 
-### Despliegue
-- **[🚀 Guía de Despliegue](docs/GUIA_DESPLIEGUE_PRODUCCION.md)** - Cloud Run, Railway, Render
-- **[✅ Deployment Checklist](docs/DEPLOYMENT_CHECKLIST.md)** - Verificación paso a paso
+```bash
+npm install
+cp .env.example .env
+docker compose -f docker-compose.redis.yml up -d
+firebase deploy --only firestore:indexes
+npm run dev
+```
 
 ## 🎯 Características Técnicas Clave
 
@@ -733,24 +704,30 @@ Para problemas o preguntas:
 
 ---
 
-**Última actualización**: 12 de noviembre de 2025  
-**Versión**: 1.1.0  
-**Estado**: ✅ Production Ready con Firebase Firestore  
+**Última actualización**: 14 de noviembre de 2025  
+**Versión**: 2.1.0  
+**Estado**: ✅ Production Ready con Navegación Mejorada  
 **Región**: southamerica-east1  
 
 **Características destacadas**:
+- ✅ **Navegación Triple Estrategia** - Click directo en páginas + botón Siguiente + URL fallback
 - ✅ Anti-bot detection funcional (Incapsula bypassed)
+- ✅ Sistema de Locks anti-duplicación (scraping coordinado)
+- ✅ Prefetch inteligente con espera de locks (máx 6 min)
 - ✅ Headless mode optimizado para Cloud Run
 - ✅ Firebase Firestore integrado (NoSQL cloud)
 - ✅ Redis caching con Docker
 - ✅ Sentry error tracking activo
 - ✅ Security completa (API keys, CORS, Helmet, Zod)
-- ✅ 20 vehículos + datos extendidos para primeros 5
+- ✅ Batching de 100 vehículos (1 scrape = 10 páginas frontend)
 - ✅ 12-13 imágenes en 3 resoluciones por vehículo
 - ✅ CI/CD automático desde GitHub
 - ✅ Guardado automático de vehículos en Firestore
 - ✅ Analytics de búsquedas y API usage
 - ✅ GDPR compliance endpoints
+
+**📚 Documentación para No Técnicos:**
+- [Cómo Funciona el Scraping](docs/COMO-FUNCIONA-SCRAPING.md) - Explicación simple del sistema
 
 **Stack Tecnológico**:
 - Backend: Node.js 20 + TypeScript 5.9 + Express 4.21

@@ -15,6 +15,56 @@ const logger = Logger.getInstance();
 
 export class VehicleTransformer {
   /**
+   * Extract engine video URL from API data
+   */
+  private static extractEngineVideo(apiData: any): string {
+    // Priority 1: Direct video URL from API (most reliable)
+    if (apiData.engine_video && apiData.engine_video !== 'N/A') {
+      return apiData.engine_video;
+    }
+    
+    // Priority 2: Video URL from Solr API (when visiting individual lot)
+    if (apiData.videoUrl && typeof apiData.videoUrl === 'string') {
+      return apiData.videoUrl;
+    }
+    
+    // Priority 3: From 'videos' array if exists
+    if (apiData.videos && Array.isArray(apiData.videos) && apiData.videos.length > 0) {
+      const engineVideo = apiData.videos.find((v: any) => 
+        v.videoType === 'ENGINE' || 
+        v.description?.toLowerCase().includes('engine')
+      );
+      if (engineVideo && (engineVideo.url || engineVideo.videoUrl)) {
+        return engineVideo.url || engineVideo.videoUrl;
+      }
+      // If no engine video, return first video
+      if (apiData.videos[0] && (apiData.videos[0].url || apiData.videos[0].videoUrl)) {
+        return apiData.videos[0].url || apiData.videos[0].videoUrl;
+      }
+    }
+    
+    // Priority 4: Try to construct from image hash (may not work for all vehicles)
+    // Note: This often fails because video hashes are different from image hashes
+    if (apiData.images_gallery && apiData.images_gallery.length > 0) {
+      const firstImage = apiData.images_gallery[0];
+      const imageUrl = firstImage.full || firstImage.thumbnail || firstImage.high_res;
+      
+      if (imageUrl && typeof imageUrl === 'string') {
+        // Extract base URL and try common video patterns
+        const baseMatch = imageUrl.match(/(https:\/\/.*?\/lpp\/\d+\/)([a-f0-9]{32})/);
+        if (baseMatch) {
+          const baseUrl = baseMatch[1];
+          const imageHash = baseMatch[2];
+          // Try constructing video URL (may 404 if video doesn't exist or uses different hash)
+          return `${baseUrl}${imageHash}_O.mp4`;
+        }
+      }
+    }
+    
+    return 'N/A';
+  }
+
+  /**
    * Build ImageGalleryItem[] from separate thumbnail/full/high_res arrays or Solr images
    */
   private static buildImageGallery(apiData: any): any[] {
@@ -147,8 +197,8 @@ export class VehicleTransformer {
       // Gallery with multiple resolutions - Build ImageGalleryItem[] from separate arrays
       images_gallery: VehicleTransformer.buildImageGallery(apiData),
 
-      // Video
-      engine_video: apiData.engine_video || 'N/A',
+      // Video - Extract from multiple sources
+      engine_video: VehicleTransformer.extractEngineVideo(apiData),
 
       // Features and details
       highlights: apiData.highlights || [],

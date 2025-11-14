@@ -177,13 +177,14 @@ class ScraperController {
       }
 
       // Cache miss - scrape data
-      logger.info(`Fresh scraping: "${query}" page ${pageNumber}`);
+      logger.info(`Fresh scraping: "${query}" page ${pageNumber} with ${numMaxItems} items`);
       const scraper = platformFactory.createScraper('copart');
       const vehicles = await scraper.scrape(
         `https://www.copart.com/lotSearchResults?free=true&query=${encodeURIComponent(String(query))}`,
         numMaxItems,
         undefined,
-        pageNumber
+        pageNumber,
+        numMaxItems  // Pass count explicitly to use in size parameter
       );
 
       // Save vehicles to Firestore in background
