@@ -23,13 +23,30 @@ export const initializeFirebase = (): admin.firestore.Firestore => {
   }
 
   try {
-    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || 
-      path.join(__dirname, '../../studio-6719476275-3891a-firebase-adminsdk-fbsvc-c0dfeef39f.json');
+    let credential;
+
+    // Option 1: JSON string in environment variable (for Cloud Run)
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+      credential = admin.credential.cert(serviceAccount);
+      logger.info('🔥 Using Firebase credentials from FIREBASE_SERVICE_ACCOUNT_JSON');
+    } 
+    // Option 2: Path to JSON file (for local development)
+    else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+      credential = admin.credential.cert(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+      logger.info('🔥 Using Firebase credentials from file path');
+    }
+    // Option 3: Default path (fallback)
+    else {
+      const defaultPath = path.join(__dirname, '../../studio-6719476275-3891a-firebase-adminsdk-fbsvc-c0dfeef39f.json');
+      credential = admin.credential.cert(defaultPath);
+      logger.info('🔥 Using Firebase credentials from default path');
+    }
 
     // Initialize Firebase Admin
     firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccountPath),
-      projectId: 'studio-6719476275-3891a', // From service account
+      credential,
+      projectId: 'studio-6719476275-3891a',
     });
 
     firestoreDb = admin.firestore();
@@ -39,7 +56,7 @@ export const initializeFirebase = (): admin.firestore.Firestore => {
       ignoreUndefinedProperties: true,
     });
 
-    logger.info('🔥 Firebase Admin initialized successfully');
+    logger.info('✅ Firebase Admin initialized successfully');
     logger.info(`📊 Connected to project: studio-6719476275-3891a`);
 
     return firestoreDb;

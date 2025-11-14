@@ -13,7 +13,7 @@ import { SentryService } from './config/sentry';
 import { initializeFirebase } from './config/firebase';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = parseInt(process.env.PORT || '3000', 10);
 const logger = Logger.getInstance();
 const monitoring = MonitoringService.getInstance();
 const cache = CacheService.getInstance();
@@ -125,10 +125,10 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
 });
 
-const server = app.listen(port, () => {
-  logger.info(`🚀 Server started on http://localhost:${port}`);
-  logger.info(`📊 Frontend UI at http://localhost:${port}`);
-  logger.info(`📋 API Docs at http://localhost:${port}/api/versions`);
+const server = app.listen(port, '0.0.0.0', () => {
+  logger.info(`🚀 Server started on port ${port}`);
+  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`📋 API ready at /api`);
 });
 
 // Start periodic metrics logging
