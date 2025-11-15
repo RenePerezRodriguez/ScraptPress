@@ -10,7 +10,8 @@ const logger = Logger.getInstance();
 
 interface LockInfo {
   query: string;
-  batchNumber: number;
+  page: number;
+  limit: number;
   startTime: number;
   lockId: string;
 }
@@ -20,18 +21,18 @@ class ScrapingLockService {
   private readonly LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos max lock time
 
   /**
-   * Try to acquire a lock for scraping a specific batch
+   * Try to acquire a lock for scraping a specific page with limit
    * Returns lockId if successful, null if already locked
    */
-  acquireLock(query: string, batchNumber: number): string | null {
-    const lockKey = this.getLockKey(query, batchNumber);
+  acquireLock(query: string, page: number, limit: number): string | null {
+    const lockKey = this.getLockKey(query, page, limit);
     const existingLock = this.locks.get(lockKey);
 
     // Check if lock exists and is still valid
     if (existingLock) {
       const elapsed = Date.now() - existingLock.startTime;
       
-      // If lock is expired (10 min timeout), remove it
+      // If lock is expired, remove it
       if (elapsed > this.LOCK_TIMEOUT_MS) {
         logger.warn(`🔓 Lock expired for ${lockKey} (${Math.round(elapsed / 1000)}s old), removing...`);
         this.locks.delete(lockKey);
@@ -45,7 +46,8 @@ class ScrapingLockService {
     const lockId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
     this.locks.set(lockKey, {
       query,
-      batchNumber,
+      page,
+      limit,
       startTime: Date.now(),
       lockId
     });
@@ -57,8 +59,8 @@ class ScrapingLockService {
   /**
    * Release a lock after scraping is complete
    */
-  releaseLock(query: string, batchNumber: number, lockId: string): boolean {
-    const lockKey = this.getLockKey(query, batchNumber);
+  releaseLock(query: string, page: number, limit: number, lockId: string): boolean {
+    const lockKey = this.getLockKey(query, page, limit);
     const existingLock = this.locks.get(lockKey);
 
     if (!existingLock) {
@@ -79,10 +81,10 @@ class ScrapingLockService {
   }
 
   /**
-   * Check if a batch is currently being scraped
+   * Check if a page+limit combination is currently being scraped
    */
-  isLocked(query: string, batchNumber: number): boolean {
-    const lockKey = this.getLockKey(query, batchNumber);
+  isLocked(query: string, page: number, limit: number): boolean {
+    const lockKey = this.getLockKey(query, page, limit);
     const lock = this.locks.get(lockKey);
     
     if (!lock) {
@@ -105,16 +107,17 @@ class ScrapingLockService {
    */
   async waitForLock(
     query: string, 
-    batchNumber: number, 
+    page: number,
+    limit: number,
     maxWaitMs: number = 15 * 60 * 1000 // 15 minutos default
   ): Promise<boolean> {
-    const lockKey = this.getLockKey(query, batchNumber);
+    const lockKey = this.getLockKey(query, page, limit);
     const startWait = Date.now();
     const pollInterval = 2000; // Check every 2 seconds
 
     logger.info(`⏳ Waiting for lock ${lockKey} (max ${Math.round(maxWaitMs / 1000)}s)...`);
 
-    while (this.isLocked(query, batchNumber)) {
+    while (this.isLocked(query, page, limit)) {
       const elapsed = Date.now() - startWait;
       
       if (elapsed >= maxWaitMs) {
@@ -133,17 +136,17 @@ class ScrapingLockService {
   }
 
   /**
-   * Get lock key for a query+batch combination
+   * Get lock key for a query+page+limit combination
    */
-  private getLockKey(query: string, batchNumber: number): string {
-    return `${query.toLowerCase().trim()}:batch:${batchNumber}`;
+  private getLockKey(query: string, page: number, limit: number): string {
+    return `${query.toLowerCase().trim()}:page:${page}:limit:${limit}`;
   }
 
   /**
    * Get current lock info for debugging
    */
-  getLockInfo(query: string, batchNumber: number): LockInfo | null {
-    const lockKey = this.getLockKey(query, batchNumber);
+  getLockInfo(query: string, page: number, limit: number): LockInfo | null {
+    const lockKey = this.getLockKey(query, page, limit);
     return this.locks.get(lockKey) || null;
   }
 

@@ -103,8 +103,18 @@ export class CopartPlatform extends BasePlatform {
 
   private async initialize(): Promise<void> {
     const isContainer = !!process.env.K_SERVICE || process.env.NODE_ENV === 'production';
+    
+    // Usar headless del config si está definido, sino usar env/container
     const headlessEnv = process.env.HEADLESS;
-    const useHeadless = headlessEnv ? headlessEnv !== 'false' : isContainer;
+    const useHeadless = this.config.headless !== undefined 
+      ? this.config.headless 
+      : (headlessEnv ? headlessEnv !== 'false' : isContainer);
+
+    const isDebug = this.config.debug || false;
+
+    if (isDebug) {
+      logger.info(`🐛 Debug mode enabled: headless=${useHeadless}, container=${isContainer}`);
+    }
 
     this.browser = await chromium.launch({
       headless: useHeadless,
@@ -118,7 +128,22 @@ export class CopartPlatform extends BasePlatform {
         '--disable-background-timer-throttling',
         '--disable-features=IsolateOrigins,site-per-process',
         '--disable-site-isolation-trials',
-        '--window-size=1920,1080'
+        '--window-size=1920,1080',
+        // Anti-detección adicional
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-breakpad',
+        '--disable-component-extensions-with-background-pages',
+        '--disable-ipc-flooding-protection',
+        '--enable-features=NetworkService,NetworkServiceInProcess',
+        '--force-color-profile=srgb',
+        '--hide-scrollbars',
+        '--metrics-recording-only',
+        '--mute-audio',
+        '--no-first-run',
+        '--disable-notifications',
+        '--disable-popup-blocking',
+        '--start-maximized'
       ]
     });
 
@@ -154,17 +179,49 @@ export class CopartPlatform extends BasePlatform {
         get: () => undefined
       });
       
-      // Add chrome object
+      // Override automation indicators
+      delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Array;
+      delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+      delete (window as any).cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
+      
+      // Add chrome object with more properties
       (window as any).chrome = {
         runtime: {},
         loadTimes: function() {},
         csi: function() {},
-        app: {}
+        app: {
+          isInstalled: false,
+          InstallState: {
+            DISABLED: 'disabled',
+            INSTALLED: 'installed',
+            NOT_INSTALLED: 'not_installed'
+          },
+          RunningState: {
+            CANNOT_RUN: 'cannot_run',
+            READY_TO_RUN: 'ready_to_run',
+            RUNNING: 'running'
+          }
+        }
       };
       
-      // Mock plugins
+      // Mock plugins with realistic data
       Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5]
+        get: () => [
+          {
+            0: { type: 'application/x-google-chrome-pdf' },
+            description: 'Portable Document Format',
+            filename: 'internal-pdf-viewer',
+            length: 1,
+            name: 'Chrome PDF Plugin'
+          },
+          {
+            0: { type: 'application/pdf' },
+            description: 'Portable Document Format',
+            filename: 'internal-pdf-viewer',
+            length: 1,
+            name: 'Chrome PDF Viewer'
+          }
+        ]
       });
       
       // Languages
@@ -187,19 +244,154 @@ export class CopartPlatform extends BasePlatform {
         get: () => 8
       });
       
-      // Permissions
+      // Max touch points
+      Object.defineProperty(navigator, 'maxTouchPoints', {
+        get: () => 0
+      });
+      
+      // Vendor
+      Object.defineProperty(navigator, 'vendor', {
+        get: () => 'Google Inc.'
+      });
+      
+      // Mock WebGL
+      const getParameter = WebGLRenderingContext.prototype.getParameter;
+      WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        if (parameter === 37445) {
+          return 'Intel Inc.'; // UNMASKED_VENDOR_WEBGL
+        }
+        if (parameter === 37446) {
+          return 'Intel Iris OpenGL Engine'; // UNMASKED_RENDERER_WEBGL
+        }
+        return getParameter.apply(this, [parameter]);
+      };
+      
+      // Mock canvas fingerprinting
+      const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+      HTMLCanvasElement.prototype.toDataURL = function(type?: string) {
+        const context = this.getContext('2d');
+        if (context) {
+          // Add tiny random noise to prevent fingerprinting
+          const imageData = context.getImageData(0, 0, this.width, this.height);
+          for (let i = 0; i < imageData.data.length; i += 4) {
+            imageData.data[i] = imageData.data[i] + Math.floor(Math.random() * 2);
+          }
+          context.putImageData(imageData, 0, 0);
+        }
+        return originalToDataURL.apply(this, [type]);
+      };
+      
+      // Battery API - make it look like plugged in
+      Object.defineProperty(navigator, 'getBattery', {
+        value: () => Promise.resolve({
+          charging: true,
+          chargingTime: 0,
+          dischargingTime: Infinity,
+          level: 1.0,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          dispatchEvent: () => true
+        })
+      });
+      
+      // Connection API
+      Object.defineProperty(navigator, 'connection', {
+        get: () => ({
+          effectiveType: '4g',
+          downlink: 10,
+          rtt: 50,
+          saveData: false
+        })
+      });
+      
+      // Mock permissions API
       const originalQuery = window.navigator.permissions.query;
       window.navigator.permissions.query = (parameters: any) => (
         parameters.name === 'notifications' ?
           Promise.resolve({ state: 'denied' } as PermissionStatus) :
           originalQuery(parameters)
       );
+      
+      // Override toString to hide modifications
+      const originalToString = Function.prototype.toString;
+      Function.prototype.toString = function() {
+        if (this === (navigator as any).getBattery) {
+          return 'function getBattery() { [native code] }';
+        }
+        return originalToString.apply(this, []);
+      };
     });
     
     this.page.setDefaultTimeout(this.config.timeout || 0);
     this.page.setDefaultNavigationTimeout(this.config.timeout || 0);
 
     await this.setupApiInterceptor();
+  }
+
+  // ============= Human Behavior Simulation =============
+
+  /**
+   * Simula movimientos de mouse aleatorios como un humano
+   */
+  private async simulateHumanMouseMovement(): Promise<void> {
+    if (!this.page) return;
+    
+    try {
+      const viewport = this.page.viewportSize();
+      if (!viewport) return;
+      
+      // Movimientos aleatorios (3-7 movimientos)
+      const movements = Math.floor(Math.random() * 5) + 3;
+      
+      for (let i = 0; i < movements; i++) {
+        const x = Math.floor(Math.random() * viewport.width);
+        const y = Math.floor(Math.random() * viewport.height);
+        
+        await this.page.mouse.move(x, y, { steps: Math.floor(Math.random() * 10) + 5 });
+        await this.page.waitForTimeout(Math.floor(Math.random() * 100) + 50);
+      }
+    } catch (error) {
+      // Ignorar errores
+    }
+  }
+
+  /**
+   * Simula scroll aleatorio como un humano
+   */
+  private async simulateHumanScroll(): Promise<void> {
+    if (!this.page) return;
+    
+    try {
+      // Scroll hacia abajo en pasos aleatorios
+      const scrolls = Math.floor(Math.random() * 3) + 2; // 2-4 scrolls
+      
+      for (let i = 0; i < scrolls; i++) {
+        const scrollAmount = Math.floor(Math.random() * 300) + 200; // 200-500px
+        await this.page.evaluate((amount) => {
+          window.scrollBy({ top: amount, behavior: 'smooth' });
+        }, scrollAmount);
+        
+        await this.page.waitForTimeout(Math.floor(Math.random() * 500) + 300); // 300-800ms
+      }
+      
+      // A veces scroll hacia arriba
+      if (Math.random() > 0.5) {
+        await this.page.evaluate(() => {
+          window.scrollBy({ top: -200, behavior: 'smooth' });
+        });
+        await this.page.waitForTimeout(Math.floor(Math.random() * 300) + 200);
+      }
+    } catch (error) {
+      // Ignorar errores
+    }
+  }
+
+  /**
+   * Simula delay aleatorio entre acciones (como humano pensando)
+   */
+  private async humanDelay(min: number = 500, max: number = 1500): Promise<void> {
+    const delay = Math.floor(Math.random() * (max - min)) + min;
+    await this.page?.waitForTimeout(delay);
   }
 
   // ============= API Interceptor =============
@@ -419,9 +611,18 @@ export class CopartPlatform extends BasePlatform {
     this.log('info', `Scraping single lot: ${lotNumber}`);
     this.apiResponses.clear();
 
+    // Comportamiento humano antes de navegar al lote
+    await this.humanDelay(500, 1000);
+
     const lotUrl = `${this.config.baseUrl}/lot/${lotNumber}`;
     await this.page.goto(lotUrl, { waitUntil: 'domcontentloaded', timeout: 300000 }).catch(() => {});
-    await this.page.waitForTimeout(500);
+    
+    // Comportamiento humano después de cargar
+    await this.humanDelay(1000, 2000);
+    await this.simulateHumanMouseMovement();
+    await this.humanDelay(500, 1000);
+    await this.simulateHumanScroll();
+    await this.humanDelay(500, 1000);
 
     const lotData = this.apiResponses.get('lot-details');
     if (lotData?.data?.lotDetails) {
@@ -634,8 +835,24 @@ export class CopartPlatform extends BasePlatform {
           
           await this.page.waitForTimeout(waitTime);
           
-          // Recargar página para nuevo intento
-          logger.info(`🔄 Retrying after ${waitMinutes} minute wait...`);
+          // 🔄 Reinicializar navegador con estrategias anti-detección para nuevo intento
+          logger.info(`🔄 Reinitializing browser with anti-detection for retry ${attempt + 1}...`);
+          
+          // Cerrar navegador actual
+          try {
+            await this.browser?.close();
+          } catch (e) {
+            // Ignorar errores al cerrar
+          }
+          
+          // Reinicializar (esto aplica todas las estrategias anti-detección nuevamente)
+          await this.initialize();
+          
+          if (!this.page) {
+            logger.error('❌ Failed to reinitialize browser');
+            return;
+          }
+          
           continue;
         }
         
@@ -646,6 +863,16 @@ export class CopartPlatform extends BasePlatform {
           if (attempt < MAX_RETRIES) {
             logger.info(`⏳ Waiting 30 seconds before retry...`);
             await this.page.waitForTimeout(30000);
+            
+            // También reiniciar navegador para intentos sin bloqueo
+            logger.info(`🔄 Reinitializing browser for clean retry...`);
+            try {
+              await this.browser?.close();
+            } catch (e) {
+              // Ignorar
+            }
+            await this.initialize();
+            
             continue;
           }
         }
@@ -663,6 +890,16 @@ export class CopartPlatform extends BasePlatform {
           const waitTime = 30000; // 30 segundos en caso de error
           logger.info(`⏳ Waiting 30 seconds before retry due to error...`);
           await this.page.waitForTimeout(waitTime);
+          
+          // Reinicializar navegador después de error
+          logger.info(`🔄 Reinitializing browser after error...`);
+          try {
+            await this.browser?.close();
+          } catch (e) {
+            // Ignorar
+          }
+          await this.initialize();
+          
           continue;
         } else {
           throw error; // Re-lanzar en último intento
@@ -699,8 +936,8 @@ export class CopartPlatform extends BasePlatform {
     this.apiResponses.clear();
     this.vehicleApiData.clear();
 
-    // Navigate to BASE URL with random delay to appear more human
-    await this.page.waitForTimeout(Math.random() * 2000 + 1000);
+    // Navigate to BASE URL with human-like behavior
+    await this.humanDelay(1000, 2000);
     await this.page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
     
     // ✅ DETECCIÓN TEMPRANA DE BLOQUEO
@@ -710,11 +947,11 @@ export class CopartPlatform extends BasePlatform {
       return; // Salir para que el retry maneje
     }
     
-    // Wait for network idle with human-like delay
-    await this.page.waitForTimeout(Math.random() * 1500 + 2000);
-    
-    // Random mouse movement on page
-    await this.page.mouse.move(Math.random() * 800 + 200, Math.random() * 600 + 100);
+    // Comportamiento humano: movimiento de mouse y scroll
+    await this.humanDelay(1500, 3000);
+    await this.simulateHumanMouseMovement();
+    await this.humanDelay(500, 1000);
+    await this.simulateHumanScroll();
     
     // Check for captcha before proceeding
     const hasCaptcha = await this.page.$('iframe[src*="recaptcha"]').catch(() => null);
@@ -726,10 +963,17 @@ export class CopartPlatform extends BasePlatform {
     // Step 1: Set page size using Modern View (PrimeNG)
     await this.setModernViewPageSize(maxItems);
     
+    // Comportamiento humano después de cambiar el tamaño
+    await this.humanDelay(800, 1500);
+    
     // Step 2: Navigate to target page if needed (using PrimeNG pagination)
     if (targetPage > 1) {
       logger.info(`📄 Now navigating from page 1 to page ${targetPage}...`);
       await this.navigateToModernPage(targetPage);
+      
+      // Comportamiento humano después de cambiar de página
+      await this.humanDelay(1000, 2000);
+      await this.simulateHumanMouseMovement();
     }
     
     // Wait for API response with the correct page data
@@ -982,8 +1226,8 @@ export class CopartPlatform extends BasePlatform {
     logger.debug(`🔍 Extracting extended data for ${vehiclesToProcess.length} vehicles...`);
     this.log('info', `Extracting extended data for ${vehiclesToProcess.length} vehicles...`);
 
-    // Parallel processing: Process 3 vehicles at a time
-    const PARALLEL_LIMIT = 3;
+    // Parallel processing: Process 2 vehicles at a time (más humano que 3)
+    const PARALLEL_LIMIT = 2;
     
     for (let i = 0; i < vehiclesToProcess.length; i += PARALLEL_LIMIT) {
       const chunk = vehiclesToProcess.slice(i, i + PARALLEL_LIMIT);
@@ -1009,12 +1253,54 @@ export class CopartPlatform extends BasePlatform {
             const lotUrl = `${this.config.baseUrl}/lot/${vehicle.lot_number}`;
             logger.debug(`🌐 [${vehicle.lot_number}] Visiting lot page...`);
             
+            // Delay humano antes de navegar
+            await dedicatedPage.waitForTimeout(Math.floor(Math.random() * 1000) + 500);
+            
             await dedicatedPage.goto(lotUrl, { 
               waitUntil: 'domcontentloaded',
               timeout: 0 // No timeout - wait as long as needed
             });
             
-            await dedicatedPage.waitForTimeout(500);
+            // Comportamiento humano después de cargar la página del lote
+            await dedicatedPage.waitForTimeout(Math.floor(Math.random() * 1500) + 1500);
+            
+            logger.debug(`👆 [${vehicle.lot_number}] Simulating human mouse movement...`);
+            // Múltiples movimientos de mouse (3-5 movimientos)
+            const viewport = dedicatedPage.viewportSize();
+            if (viewport) {
+              const movements = Math.floor(Math.random() * 3) + 3; // 3-5 movimientos
+              for (let m = 0; m < movements; m++) {
+                await dedicatedPage.mouse.move(
+                  Math.floor(Math.random() * viewport.width),
+                  Math.floor(Math.random() * viewport.height),
+                  { steps: Math.floor(Math.random() * 10) + 5 }
+                );
+                await dedicatedPage.waitForTimeout(Math.floor(Math.random() * 200) + 100);
+              }
+            }
+            
+            await dedicatedPage.waitForTimeout(Math.floor(Math.random() * 500) + 300);
+            
+            logger.debug(`📜 [${vehicle.lot_number}] Simulating human scroll...`);
+            // Múltiples scrolls (2-4 scrolls)
+            const scrolls = Math.floor(Math.random() * 3) + 2; // 2-4 scrolls
+            for (let s = 0; s < scrolls; s++) {
+              await dedicatedPage.evaluate(() => {
+                const scrollAmount = Math.floor(Math.random() * 300) + 200;
+                window.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+              });
+              await dedicatedPage.waitForTimeout(Math.floor(Math.random() * 600) + 400);
+            }
+            
+            // A veces scroll hacia arriba
+            if (Math.random() > 0.5) {
+              await dedicatedPage.evaluate(() => {
+                window.scrollBy({ top: -200, behavior: 'smooth' });
+              });
+              await dedicatedPage.waitForTimeout(Math.floor(Math.random() * 400) + 300);
+            }
+            
+            await dedicatedPage.waitForTimeout(Math.floor(Math.random() * 800) + 500);
             
             // Extract VIN
             if (vehicle.vin === 'N/A' || !vehicle.vin || vehicle.vin.includes('*')) {

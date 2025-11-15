@@ -1,7 +1,7 @@
 {
   "name": "scraptpress",
-  "version": "1.2.0",
-  "description": "Professional Copart vehicle scraper API with intelligent batching, prefetch, Firebase Firestore, and Cloud Run optimization",
+  "version": "2.3.0",
+  "description": "Professional Copart vehicle scraper API with page+limit system, intelligent prefetch, Firebase Firestore, and Cloud Run optimization",
   "main": "dist/index.js",
   "repository": {
     "type": "git",

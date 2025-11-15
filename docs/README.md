@@ -1,6 +1,8 @@
 # 📚 ScraptPress - Documentación
 
-> Sistema de scraping profesional de Copart.com con batching inteligente, prefetch automático y sistemas defensivos anti-detección.
+> Sistema de scraping profesional de Copart.com con arquitectura page+limit, prefetch automático y sistemas defensivos anti-detección.
+
+**Versión actual:** 2.3.0 | **Fecha:** 15 de noviembre de 2025
 
 ---
 
@@ -33,19 +35,17 @@ npm run dev
 ```
 docs/
 ├── README.md                          # 👈 Estás aquí - Inicio
-├── COMO-FUNCIONA-SCRAPING.md          # 🎓 Guía para no técnicos (NUEVO)
-├── RESUMEN-IMPLEMENTACION-v2.1.md     # 📋 Resumen completo v2.1 (NUEVO)
+├── ARCHITECTURE-V2.3.md               # 🏗️ Arquitectura page+limit (NUEVO)
 ├── API-REFERENCE.md                   # 📡 Referencia completa de API
+├── COMO-FUNCIONA-SCRAPING.md          # 🎓 Guía para no técnicos
+├── COPART-BLOCKING-RETRY-SYSTEM.md    # 🔄 Sistema de retry ante bloqueos
 ├── TESTING.md                         # 🧪 Guía de testing
 ├── api/
 │   └── ejemplo-respuesta-optimizada.json
 ├── architecture/
-│   ├── ADD_NEW_PLATFORM.md            # 🏗️ Extensibilidad
-│   └── SISTEMAS-DEFENSIVOS.md         # 🛡️ Rate Limiter, Proxies, Queue
+│   └── ADD_NEW_PLATFORM.md            # 🏗️ Extensibilidad
 ├── deployment/
 │   └── CI-CD-SETUP.md                 # 🚀 CI/CD con GitHub Actions
-├── implementation/
-│   └── IMPLEMENTACION-FINAL.md        # ✅ Guía de implementación completa
 └── setup/
     └── FIRESTORE-INDEXES.md           # ⚙️ Configuración Firebase
 ```
@@ -56,37 +56,32 @@ docs/
 
 ### 🎯 Esenciales
 
-- **[Cómo Funciona el Scraping](./COMO-FUNCIONA-SCRAPING.md)** ⭐ NUEVO
-  - Guía para personas no técnicas
-  - Explicación simple con analogías del mundo real
-  - Por qué la primera búsqueda tarda 4-5 minutos
-  - Sistema de lotes (batches) visualizado
-  - Preguntas frecuentes con ejemplos
-
-- **[Resumen Implementación v2.1](./RESUMEN-IMPLEMENTACION-v2.1.md)** ⭐ NUEVO
-  - Changelog detallado de la versión 2.1.0
-  - Problemas resueltos con explicaciones técnicas
-  - Comparación antes vs ahora
-  - Archivos modificados y testing realizado
-  - Métricas de mejora y próximos pasos
+- **[Arquitectura v2.3.0](./ARCHITECTURE-V2.3.md)** ⭐ NUEVO
+  - Sistema page+limit completo
+  - Comparación Opción 1 vs Opción 2 (batch)
+  - Locks aislados por page+limit
+  - Prefetch mejorado con validaciones
+  - Estructura Firestore optimizada
+  - Decisiones de diseño documentadas
 
 - **[API Reference](./API-REFERENCE.md)** ⭐
-  - Endpoint `/api/search/intelligent` (batching de 100 vehículos)
+  - Endpoint `/api/search/intelligent` con límites configurables
   - Sistema de prefetch automático
   - Ejemplos de integración (React, TypeScript, PowerShell)
   - Códigos de respuesta y troubleshooting
 
-- **[Implementación Final](./implementation/IMPLEMENTACION-FINAL.md)** ⭐
-  - Guía completa de implementación v2.0
-  - Sistema de batching y prefetch
-  - Logger estructurado con 5 niveles
-  - Frontend completo en public/
+- **[Cómo Funciona el Scraping](./COMO-FUNCIONA-SCRAPING.md)** ⭐
+  - Guía para personas no técnicas
+  - Explicación simple con analogías del mundo real
+  - Por qué la primera búsqueda tarda tiempo
+  - Sistema de páginas visualizado
+  - Preguntas frecuentes con ejemplos
 
-- **[Sistemas Defensivos](./architecture/SISTEMAS-DEFENSIVOS.md)** ⭐
-  - Rate Limiter (10 req/min, 3 concurrentes max)
-  - Proxy Rotator (con health checks)
-  - Queue System (tareas con prioridad)
-  - Estrategias Safe/Balanced/Aggressive
+- **[Sistema de Retry](./COPART-BLOCKING-RETRY-SYSTEM.md)**
+  - Auto-recuperación ante bloqueos de Copart
+  - 3 intentos con esperas progresivas
+  - Detección Error 15 automática
+  - Logs informativos con IP bloqueada
 
 ### ⚙️ Configuración
 
@@ -114,26 +109,30 @@ docs/
 
 ## 📊 Características Clave
 
-### Sistema de Batching Inteligente con Locks
+### Sistema Page+Limit con Locks Aislados
 
 ```
-Frontend: 10 vehículos por página
-Backend: 100 vehículos por batch (1 página de Copart)
+Estructura: searches/{query}/cache/{page}-{limit}
 
-┌──────────────────────────────────────────────┐
-│ Batch 0 (100 veh) → Frontend páginas 1-10   │
-│ Batch 1 (100 veh) → Frontend páginas 11-20  │
-│ Batch 2 (100 veh) → Frontend páginas 21-30  │
-└──────────────────────────────────────────────┘
+Usuario selecciona límite:
+- 10 vehículos  → ~2 min scraping
+- 50 vehículos  → ~8 min scraping
+- 100 vehículos → ~20 min scraping
+
+Ejemplos:
+searches/mazda/cache/1-10   → Página 1, 10 vehículos
+searches/mazda/cache/1-50   → Página 1, 50 vehículos (INDEPENDIENTE)
+searches/mazda/cache/2-10   → Página 2, 10 vehículos
 ```
 
 **Ventajas**:
-- ✅ Una sola request a Copart = 10 páginas frontend
-- ✅ Navegación instantánea entre páginas del mismo batch
-- ✅ Prefetch automático cuando llega a página 3, 13, 23, etc.
-- ✅ **Sistema de Locks**: Evita scraping duplicado del mismo batch
-- ✅ **Espera Inteligente**: Si otro proceso scrapea, espera hasta 6 min
-- ✅ **Race Condition Safe**: Múltiples requests coordinados
+- ✅ **Usuario controla tiempo**: Selector 10/50/100
+- ✅ **1 read Firestore por página**: Cache instantáneo
+- ✅ **Sin colisiones**: Locks únicos query:page:X:limit:Y
+- ✅ **TTL independiente**: Cada página expira por separado
+- ✅ **Prefetch predecible**: Siguiente página con mismo límite
+- ✅ **Locks aislados**: 1-10 no bloquea 1-50
+- ✅ **Espera inteligente**: Máximo 15 minutos con auto-liberación
 
 ### Sistemas Defensivos Anti-Detección
 
@@ -245,13 +244,13 @@ Ver [API-REFERENCE.md](./API-REFERENCE.md) para documentación completa.
 
 | Operación | Tiempo | Descripción |
 |-----------|--------|-------------|
-| Cache Hit (Redis) | < 100ms | Instantáneo |
-| Cache Hit (Firestore) | < 2s | Muy rápido |
-| Scraping 100 vehículos | ~4-5 min | Un batch completo |
-| Navegación (cached) | < 100ms | Entre páginas del mismo batch |
+| Cache Hit (Firestore) | < 2s | Instantáneo (7 días TTL) |
+| Scraping 10 vehículos | ~2 min | Exploración rápida |
+| Scraping 50 vehículos | ~8 min | Balance velocidad/cantidad |
+| Scraping 100 vehículos | ~20 min | Máximo resultados |
 | Prefetch | Background | No bloquea UI |
-| **Espera de Lock** | 30s-4min | Si otro proceso scrapea el mismo batch |
-| **Lock timeout** | 10 min | Expiración automática de seguridad |
+| **Espera de Lock** | Auto | Si otro usuario scrapea misma page+limit |
+| **Lock timeout** | 15 min | Expiración automática de seguridad |
 
 ---
 
@@ -363,21 +362,22 @@ El sistema detecta automáticamente y espera 60 segundos. Si persiste:
 
 ---
 
-**Última actualización**: 14 de noviembre de 2025  
-**Versión**: 2.1.0  
-**Estado**: ✅ Production Ready con Navegación Mejorada
+**Última actualización**: 15 de noviembre de 2025  
+**Versión**: 2.3.0  
+**Estado**: ✅ Production Ready con Sistema Page+Limit
 
 **Características actuales**:
-- ✅ Batching de 100 vehículos (1 página Copart = 10 páginas frontend)
-- ✅ **Sistema de Navegación Triple Estrategia** (click directo + botón Siguiente + URL)
-- ✅ **Sistema de Locks anti-duplicación** (race condition safe)
-- ✅ Prefetch inteligente con espera de locks (activación en pág 3+)
-- ✅ 3 sistemas defensivos (Rate Limiter, Proxy Rotator, Queue)
+- ✅ **Sistema page+limit** (usuario selecciona 10/50/100 vehículos)
+- ✅ **Locks aislados** por page+limit (sin colisiones)
+- ✅ **Prefetch mejorado** (activa después cache hits Y scraping)
+- ✅ **Popular searches** con instant results indicator
+- ✅ **Validación lot numbers** (estructura Firestore limpia)
+- ✅ Sistema de retry ante bloqueos (3 intentos automáticos)
 - ✅ Scraping paralelo (3 vehículos simultáneos)
-- ✅ Cache multi-nivel (Redis + Firestore)
+- ✅ Cache Firestore con TTL 7 días
 - ✅ Anti-detección Incapsula/WAF
 - ✅ VIN completo + 12+ imágenes por vehículo
-- ✅ Firebase Firestore con índices optimizados
+- ✅ Firebase Firestore optimizado
 
 **📚 Nueva Documentación:**
-- [Cómo Funciona el Scraping](./COMO-FUNCIONA-SCRAPING.md) ⭐ NUEVO - Guía para no técnicos
+- [Arquitectura v2.3.0](./ARCHITECTURE-V2.3.md) ⭐ NUEVO - Sistema page+limit completo

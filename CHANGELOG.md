@@ -7,6 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2025-11-15
+
+### Added
+- **Sistema Page+Limit (Opción 1)** - Arquitectura completamente nueva
+  - Estructura: `searches/{query}/cache/{page}-{limit}`
+  - Usuario selecciona límite: 10 (~2min), 50 (~8min), 100 (~20min)
+  - Locks aislados: `query:page:X:limit:Y` sin colisiones
+  - TTL independiente por documento de página
+  - Prefetch predecible (siguiente página con mismo límite)
+- **Selector de Límite en Frontend**
+  - Dropdown con 3 opciones: 10/50/100 resultados
+  - Estimación de tiempo por opción
+  - Todos los entry points actualizados (SearchBar, Header, Mobile, Hero)
+- **Prefetch Mejorado**
+  - Función `triggerPrefetch()` helper centralizada
+  - Activa después de cache hits Y después de scraping exitoso
+  - Validaciones: existencia en cache, lock activo, límite válido
+  - Background execution sin bloquear UI
+- **Popular Searches con Instant Results**
+  - Endpoint `/api/popular-searches` con top queries
+  - Componente PopularSearches con badges y loading skeleton
+  - Texto mejorado: "resultados al instante" (más claro que "en caché")
+  - Integrado en hero-content.tsx
+- **Validación de Lot Numbers**
+  - Regex `/^\d+$/` detecta lot numbers (vehículos específicos)
+  - Skip metadata creation para evitar contaminación en searches/
+  - Logs informativos: "⏭️ Skipping metadata for lot number"
+  - Estructura Firestore limpia: solo queries de búsqueda
+- **Scripts de Utilidad**
+  - `check-firestore-structure.ts` - Ver estructura completa con detalles
+  - `cleanup-lot-numbers.ts` - Limpieza automática de lot numbers
+  - Excluidos de tsconfig.json para evitar errores de compilación
+- **Documentación Actualizada**
+  - ARCHITECTURE-V2.3.md - Explicación completa del sistema page+limit
+  - Comparación Opción 1 vs Opción 2 (batch)
+  - Diagramas de flujo completos
+  - Decisiones de diseño documentadas
+
+### Changed
+- Frontend usa `limit` parameter en vez de calcular batches
+- Backend `savePage()` y `getPage()` con page+limit parameters
+- ScrapingLockService con lock key format: `query:page:X:limit:Y`
+- Navegación simplificada: cada página = 1 fetch al backend
+- Cache estructura: `{page}-{limit}` en vez de batches complejos
+- Logs mejorados con indicadores de page+limit en todas las operaciones
+
+### Fixed
+- Numeric documents en Firestore (lot numbers creaban metadata)
+- Colisiones entre límites diferentes (1-10 vs 1-50)
+- Prefetch solo activaba en cache hits (ahora también post-scraping)
+- "page is not defined" error en search page
+- Texto técnico "en caché" confuso para usuarios
+- Mobile header sin límite parameter en redirect
+
+### Improved
+- Reducción de complejidad: page+limit vs batch calculations
+- Granularidad de locks: por página exacta (no batch completo)
+- UX: usuario controla tiempo de scraping (10/50/100)
+- Mantenibilidad: código más simple y fácil de debuguear
+- Escalabilidad: locks aislados permiten más concurrencia
+- Firestore structure: solo queries válidos, sin contaminación
+
+### Documentation
+- Nueva arquitectura documentada en ARCHITECTURE-V2.3.md
+- README.md actualizado con sistema page+limit
+- API-REFERENCE.md con nuevos parámetros
+- Scripts de utilidad documentados
+- Comparación Opción 1 vs Opción 2 con pros/cons
+
 ## [2.2.0] - 2025-11-15
 
 ### Added

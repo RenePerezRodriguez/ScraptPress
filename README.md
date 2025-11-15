@@ -1,20 +1,20 @@
 # 🚗 ScraptPress - Copart Vehicle Scraper API
 
-**API REST profesional de scraping de vehículos de Copart.com** con sistema de caché inteligente, paginación optimizada, extracción paralela de datos y Firebase Firestore.
+**API REST profesional de scraping de vehículos de Copart.com** con sistema de paginación page+limit, prefetch inteligente, y Firebase Firestore.
 
 ## ✨ Características Principales
 
 - 🔍 **Scraping Inteligente Híbrido** - Cache first con fallback a scraping en tiempo real
-- 🚀 **Batching Optimizado** - Scraping por lotes de 50 vehículos para máxima eficiencia
-- 🎯 **Prefetch Inteligente** - Carga anticipada de páginas siguientes en background
+- 🎯 **Sistema Page+Limit** - Usuario selecciona límite (10/50/100) por velocidad preferida
+- 🚀 **Prefetch Inteligente** - Carga anticipada automática después de cache hits y scraping
 - ⚡ **Scraping Paralelo** - Procesa 3 vehículos simultáneamente (3-5x más rápido)
 - 🤖 **Anti-Detección Avanzada** - Bypass completo de Incapsula/WAF de Copart
-- 🔥 **Firebase Firestore** - Base de datos NoSQL en la nube con índices compuestos optimizados
-- 📄 **Paginación Inteligente** - 10 items por página frontend, batches de 50 en backend
-- 🔑 **Extracción Completa de VIN** - 100% de vehículos con VIN completo (sin asteriscos)
-- 📸 **Galería Completa** - 12+ imágenes en 3 resoluciones (thumbnail, full, high-res) para TODOS los vehículos
-- 🎬 **Videos de Motor** - Extracción automática de videos cuando están disponibles
-- 🎯 **Datos Extendidos** - Highlights, especificaciones técnicas, historial de daños
+- 🔥 **Firebase Firestore** - Cache en la nube con TTL de 7 días por página
+- 🔐 **Locks Aislados** - Sin colisiones: `query:page:X:limit:Y` únicos
+- 🔑 **Extracción Completa de VIN** - 100% de vehículos con VIN completo
+- 📸 **Galería Completa** - 12+ imágenes en 3 resoluciones para TODOS los vehículos
+- 🎬 **Videos de Motor** - Extracción automática cuando disponibles
+- 🎯 **Datos Extendidos** - Highlights, especificaciones, historial de daños
 - 🌐 **API REST** - Endpoints limpios con validación Zod
 - 🔐 **Seguridad Enterprise** - API Keys, Helmet, CORS, rate limiting
 - 📊 **Monitoreo Completo** - Sentry error tracking, métricas en tiempo real
@@ -24,37 +24,36 @@
 
 | Operación | Tiempo | Descripción |
 |-----------|--------|-------------|
-| **Cache Hit (Redis)** | < 100ms | Instantáneo (7 días) |
-| **Cache Hit (Firestore)** | < 2s | Muy rápido (7 días) |
-| **Scraping 100 vehículos** | 4-10 min | Normal: 4-5 min, Con bloqueo: 7-10 min |
-| **Navegación (cached)** | < 100ms | Entre páginas del mismo batch |
+| **Cache Hit (Firestore)** | < 2s | Instantáneo (7 días TTL) |
+| **Scraping 10 vehículos** | ~2 min | Exploración rápida |
+| **Scraping 50 vehículos** | ~8 min | Balance velocidad/cantidad |
+| **Scraping 100 vehículos** | ~20 min | Máximo resultados |
 | **Prefetch** | Background | No bloquea UI |
-| **Espera de Lock** | Auto | Hasta 15 min, se libera inmediatamente al terminar |
-| **Retry automático** | 2-5-10 min | Si Copart bloquea, reintenta progresivamente |
+| **Lock wait time** | Auto | Máximo 15 min, libera inmediatamente |
+| **Retry automático** | 2-5-10 min | Si Copart bloquea, reintenta |
 
-### Optimizaciones v2.2
+## 🎯 Sistema Page+Limit (v2.3.0)
 
-- ✅ **Retry Inteligente (NUEVO)** - Auto-recuperación ante bloqueos de Copart
-  - Detecta Error 15 automáticamente (parsing HTML de Imperva)
-  - 3 intentos con esperas progresivas: 2min → 5min → 10min
-  - Logs con IP bloqueada para debugging
-  - 99% de éxito sin intervención manual
-- ✅ **Caché 7 días (NUEVO)** - Redis + Firestore con TTL extendido (antes 24h)
-- ✅ **Sin timeouts estrictos (NUEVO)** - Sistema espera lo necesario sin generar errores falsos
-- ✅ **Batching 100 vehículos** - Vista Clásica Copart (1 página = 100 resultados)
-- ✅ **Navegación Inteligente de Páginas** - 3 estrategias de fallback para máxima confiabilidad
-  - Estrategia 1: Click directo en número de página (más rápido)
-  - Estrategia 2: Click en botón "Siguiente" (páginas lejanas)
-  - Estrategia 3: URL directa (fallback de emergencia)
-- ✅ **Prefetch Inteligente** - Trigger en páginas 3+, 13+, 23+ (configurable)
-- ✅ **Scraping Paralelo** - 3 vehículos con páginas dedicadas (seguro, probado)
-- ✅ **Sistema de Locks** - Evita scraping duplicado con locks en memoria + espera inteligente (15 min)
-- ✅ **Rate Limiting** - 10/min, 3 concurrentes, protección anti-ban
-- ✅ **Cache Multi-Nivel** - Redis + Firestore con TTL de 7 días
-- ✅ **Timeouts Optimizados** - 500ms vs 2000ms (8x más rápido)
-- ✅ **API Interceptors** - Captura de imágenes desde API interna de Copart
+### Arquitectura Elegida: Opción 1
 
-## 🏗️ Arquitectura del Sistema
+```
+searches/{query}/cache/{page}-{limit}
+
+Ejemplos:
+searches/mazda/cache/1-10    → Página 1, 10 vehículos (~2 min)
+searches/mazda/cache/1-50    → Página 1, 50 vehículos (~8 min)
+searches/mazda/cache/2-10    → Página 2, 10 vehículos (~2 min)
+```
+
+### Ventajas
+
+✅ **1 read Firestore por página** - Cache instantáneo  
+✅ **Usuario controla tiempo** - Selector 10/50/100  
+✅ **Sin colisiones** - Locks aislados por page+limit  
+✅ **TTL independiente** - Cada página expira por separado  
+✅ **Prefetch predecible** - Siguiente página con mismo límite  
+
+Ver [documentación completa](docs/ARCHITECTURE-V2.3.md)
 
 ### Stack Tecnológico
 

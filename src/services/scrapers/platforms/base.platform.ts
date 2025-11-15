@@ -14,6 +14,8 @@ export interface PlatformConfig {
   headers?: Record<string, string>;
   timeout?: number;
   retries?: number;
+  headless?: boolean; // false = ver el navegador (solo local)
+  debug?: boolean; // true = logs detallados y screenshots
 }
 
 export interface ScrapingResult {

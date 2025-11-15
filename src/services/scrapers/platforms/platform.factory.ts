@@ -66,7 +66,18 @@ export class DefaultPlatformFactory implements PlatformFactory {
       throw new Error(`Platform '${type}' not supported. Available: ${Array.from(this.platforms.keys()).join(', ')}`);
     }
 
+    // Merge default config with custom config
+    const mergedConfig = {
+      ...platform.config,
+      ...config
+    };
+
     // Create instance with merged config
+    if (type === 'copart') {
+      return new CopartPlatform(mergedConfig);
+    }
+    
+    // Fallback to factory method
     const scraper = platform.factory();
     return scraper;
   }

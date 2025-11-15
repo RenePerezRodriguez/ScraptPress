@@ -1,20 +1,22 @@
 /**
- * Batch Repository - Optimized Firestore structure
+ * Page Repository - Optimized Firestore structure with dynamic page sizes
  * 
- * Structure: searches/{query}/batches/{batchNumber}
- * Each batch stores 100 vehicles (1 Copart page) as a single document
+ * Structure: searches/{query}/cache/{page}-{limit}
+ * Each cache document stores exactly {limit} vehicles for a specific page
  * 
  * System:
- * - Batch 0: Copart page 1 (vehicles 1-100) → Frontend pages 1-10
- * - Batch 1: Copart page 2 (vehicles 101-200) → Frontend pages 11-20
- * - Batch 2: Copart page 3 (vehicles 201-300) → Frontend pages 21-30
+ * - Page 1, Limit 10: cache/1-10 (10 vehicles) → ~2 min scraping
+ * - Page 1, Limit 50: cache/1-50 (50 vehicles) → ~10 min scraping
+ * - Page 1, Limit 100: cache/1-100 (100 vehicles) → ~20 min scraping
+ * - Page 2, Limit 10: cache/2-10 (10 vehicles) → ~2 min scraping
  * 
  * Benefits:
- * - 1 read instead of 100 individual reads (100x faster)
- * - Natural ordering (array index)
- * - Perfect for Redis cache
- * - TTL per batch
- * - Query isolation
+ * - 1 read per page request (instant cache hits)
+ * - User controls scraping time via limit selection
+ * - No collisions between different limits
+ * - Isolated locks per page+limit combination
+ * - TTL per cache document
+ * - Predictable prefetch (always next page with same limit)
  */
 
 import { getFirestore, FirestoreHelpers } from '../../config/firebase';
@@ -23,8 +25,9 @@ import * as admin from 'firebase-admin';
 
 const logger = Logger.getInstance();
 
-export interface BatchMetadata {
-  batchNumber: number;
+export interface PageMetadata {
+  page: number;
+  limit: number;
   size: number;
   query: string;
   createdAt: admin.firestore.Timestamp;
@@ -33,32 +36,35 @@ export interface BatchMetadata {
   scrapeDuration: number;
 }
 
-export interface BatchDocument {
-  metadata: BatchMetadata;
+export interface PageDocument {
+  metadata: PageMetadata;
   vehicles: any[];
 }
 
 export class BatchRepository {
   /**
-   * Save complete batch to Firestore
-   * Path: searches/{query}/batches/{batchNumber}
+   * Save complete page to Firestore
+   * Path: searches/{query}/cache/{page}-{limit}
    */
-  static async saveBatch(
+  static async savePage(
     query: string,
-    batchNumber: number,
+    page: number,
+    limit: number,
     vehicles: any[],
     scrapeDuration: number
   ): Promise<boolean> {
     try {
       const db = getFirestore();
       const normalizedQuery = query.toLowerCase().trim();
+      const cacheKey = `${page}-${limit}`;
       
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7); // 7 días TTL
       
-      const batchDoc: BatchDocument = {
+      const pageDoc: PageDocument = {
         metadata: {
-          batchNumber,
+          page,
+          limit,
           size: vehicles.length,
           query: normalizedQuery,
           createdAt: FirestoreHelpers.serverTimestamp() as any,
@@ -68,127 +74,145 @@ export class BatchRepository {
         },
         vehicles: vehicles.map((v, index) => ({
           ...v,
-          batchIndex: index // Position within batch (0-99)
+          pageIndex: index // Position within page (0-based)
         }))
       };
       
       await db
         .collection('searches')
         .doc(normalizedQuery)
-        .collection('batches')
-        .doc(batchNumber.toString())
-        .set(batchDoc);
+        .collection('cache')
+        .doc(cacheKey)
+        .set(pageDoc);
       
-      logger.info(`✅ Saved batch ${batchNumber} for "${query}": ${vehicles.length} vehicles`);
+      logger.info(`✅ Saved page ${page} (limit ${limit}) for "${query}": ${vehicles.length} vehicles`);
       
       // Update search metadata
-      await this.updateSearchMetadata(normalizedQuery, batchNumber, vehicles.length);
+      await this.updateSearchMetadata(normalizedQuery, page, limit, vehicles.length);
       
       return true;
     } catch (error) {
-      logger.error(`Error saving batch ${batchNumber} for "${query}":`, error);
+      logger.error(`Error saving page ${page} (limit ${limit}) for "${query}":`, error);
       return false;
     }
   }
 
   /**
-   * Get batch from Firestore
+   * Get page from Firestore
    * Returns null if not found or expired
    */
-  static async getBatch(query: string, batchNumber: number): Promise<any[] | null> {
+  static async getPage(query: string, page: number, limit: number): Promise<any[] | null> {
     try {
       const db = getFirestore();
       const normalizedQuery = query.toLowerCase().trim();
+      const cacheKey = `${page}-${limit}`;
       
-      const batchRef = db
+      const pageRef = db
         .collection('searches')
         .doc(normalizedQuery)
-        .collection('batches')
-        .doc(batchNumber.toString());
+        .collection('cache')
+        .doc(cacheKey);
       
-      const batchDoc = await batchRef.get();
+      const pageDoc = await pageRef.get();
       
-      if (!batchDoc.exists) {
-        logger.debug(`Batch ${batchNumber} not found for "${query}"`);
+      if (!pageDoc.exists) {
+        logger.debug(`Page ${page} (limit ${limit}) not found for "${query}"`);
         return null;
       }
       
-      const data = batchDoc.data() as BatchDocument;
+      const data = pageDoc.data() as PageDocument;
       
       // Check if expired
       const now = admin.firestore.Timestamp.now();
       if (data.metadata.expiresAt < now) {
-        logger.info(`Batch ${batchNumber} expired for "${query}", deleting...`);
-        await batchRef.delete();
+        logger.info(`Page ${page} (limit ${limit}) expired for "${query}", deleting...`);
+        await pageRef.delete();
         return null;
       }
       
-      logger.debug(`✅ Retrieved batch ${batchNumber} for "${query}": ${data.vehicles.length} vehicles`);
+      logger.debug(`✅ Retrieved page ${page} (limit ${limit}) for "${query}": ${data.vehicles.length} vehicles`);
       return data.vehicles;
     } catch (error) {
-      logger.error(`Error getting batch ${batchNumber} for "${query}":`, error);
+      logger.error(`Error getting page ${page} (limit ${limit}) for "${query}":`, error);
       return null;
     }
   }
 
   /**
-   * Check if batch exists and is not expired
+   * Check if page exists and is not expired
    */
-  static async batchExists(query: string, batchNumber: number): Promise<boolean> {
+  static async pageExists(query: string, page: number, limit: number): Promise<boolean> {
     try {
       const db = getFirestore();
       const normalizedQuery = query.toLowerCase().trim();
+      const cacheKey = `${page}-${limit}`;
       
-      const batchDoc = await db
+      const pageDoc = await db
         .collection('searches')
         .doc(normalizedQuery)
-        .collection('batches')
-        .doc(batchNumber.toString())
+        .collection('cache')
+        .doc(cacheKey)
         .get();
       
-      if (!batchDoc.exists) {
+      if (!pageDoc.exists) {
         return false;
       }
       
-      const data = batchDoc.data() as BatchDocument;
+      const data = pageDoc.data() as PageDocument;
       const now = admin.firestore.Timestamp.now();
       
       return data.metadata.expiresAt >= now;
     } catch (error) {
-      logger.error(`Error checking batch ${batchNumber} for "${query}":`, error);
+      logger.error(`Error checking page ${page} (limit ${limit}) for "${query}":`, error);
       return false;
     }
   }
 
   /**
-   * Update search metadata (total vehicles, batches, etc.)
+   * Update search metadata (track popular searches and cache info)
    */
   private static async updateSearchMetadata(
     query: string,
-    batchNumber: number,
+    page: number,
+    limit: number,
     vehicleCount: number
   ): Promise<void> {
     try {
       const db = getFirestore();
-      const searchRef = db.collection('searches').doc(query);
+      const normalizedQuery = query.toLowerCase().trim();
+      
+      // Validate query
+      if (!normalizedQuery || normalizedQuery.length === 0) {
+        logger.error(`❌ Invalid query received in updateSearchMetadata: "${query}" (normalized: "${normalizedQuery}")`);
+        return;
+      }
+      
+      // Skip metadata for lot numbers (pure numeric queries)
+      // Lot numbers are vehicle-specific searches, not general search queries
+      if (/^\d+$/.test(normalizedQuery)) {
+        logger.debug(`⏭️ Skipping metadata for lot number: "${normalizedQuery}"`);
+        return;
+      }
+      
+      const searchRef = db.collection('searches').doc(normalizedQuery);
+      
+      logger.debug(`📝 Updating metadata: "${normalizedQuery}" (page: ${page}, limit: ${limit}, vehicles: ${vehicleCount})`);
       
       const searchDoc = await searchRef.get();
       
       if (searchDoc.exists) {
         // Update existing metadata
+        logger.debug(`  ↪ Incrementing searchCount for "${normalizedQuery}"`);
         await searchRef.update({
           'metadata.lastUpdated': FirestoreHelpers.serverTimestamp(),
-          'metadata.totalBatches': batchNumber + 1,
           'metadata.searchCount': FirestoreHelpers.increment(1)
         });
       } else {
         // Create new metadata
+        logger.info(`  ↪ Creating NEW metadata document for "${normalizedQuery}"`);
         await searchRef.set({
           metadata: {
-            query,
-            totalVehicles: vehicleCount,
-            totalBatches: batchNumber + 1,
-            batchSize: 50,
+            query: normalizedQuery,
             lastUpdated: FirestoreHelpers.serverTimestamp(),
             searchCount: 1,
             createdAt: FirestoreHelpers.serverTimestamp()
@@ -225,60 +249,60 @@ export class BatchRepository {
   }
 
   /**
-   * Delete expired batches for a query
+   * Delete expired pages for a query
    */
-  static async deleteExpiredBatches(query: string): Promise<number> {
+  static async deleteExpiredPages(query: string): Promise<number> {
     try {
       const db = getFirestore();
       const normalizedQuery = query.toLowerCase().trim();
       const now = admin.firestore.Timestamp.now();
       
-      const expiredBatches = await db
+      const expiredPages = await db
         .collection('searches')
         .doc(normalizedQuery)
-        .collection('batches')
+        .collection('cache')
         .where('metadata.expiresAt', '<', now)
         .get();
       
-      if (expiredBatches.empty) {
+      if (expiredPages.empty) {
         return 0;
       }
       
       const batch = db.batch();
-      expiredBatches.forEach(doc => {
+      expiredPages.forEach(doc => {
         batch.delete(doc.ref);
       });
       
       await batch.commit();
       
-      logger.info(`🗑️ Deleted ${expiredBatches.size} expired batches for "${query}"`);
-      return expiredBatches.size;
+      logger.info(`🗑️ Deleted ${expiredPages.size} expired pages for "${query}"`);
+      return expiredPages.size;
     } catch (error) {
-      logger.error(`Error deleting expired batches for "${query}":`, error);
+      logger.error(`Error deleting expired pages for "${query}":`, error);
       return 0;
     }
   }
 
   /**
-   * Delete all batches for a query
+   * Delete all pages for a query
    */
-  static async deleteAllBatches(query: string): Promise<boolean> {
+  static async deleteAllPages(query: string): Promise<boolean> {
     try {
       const db = getFirestore();
       const normalizedQuery = query.toLowerCase().trim();
       
-      const batches = await db
+      const pages = await db
         .collection('searches')
         .doc(normalizedQuery)
-        .collection('batches')
+        .collection('cache')
         .get();
       
-      if (batches.empty) {
+      if (pages.empty) {
         return true;
       }
       
       const batch = db.batch();
-      batches.forEach(doc => {
+      pages.forEach(doc => {
         batch.delete(doc.ref);
       });
       
@@ -287,10 +311,10 @@ export class BatchRepository {
       // Delete search metadata
       await db.collection('searches').doc(normalizedQuery).delete();
       
-      logger.info(`🗑️ Deleted all batches for "${query}"`);
+      logger.info(`🗑️ Deleted all pages for "${query}"`);
       return true;
     } catch (error) {
-      logger.error(`Error deleting all batches for "${query}":`, error);
+      logger.error(`Error deleting all pages for "${query}":`, error);
       return false;
     }
   }
@@ -325,12 +349,11 @@ export class BatchRepository {
   }
 
   /**
-   * Cleanup all expired batches (run periodically)
+   * Cleanup all expired pages (run periodically)
    */
-  static async cleanupAllExpiredBatches(): Promise<number> {
+  static async cleanupAllExpiredPages(): Promise<number> {
     try {
       const db = getFirestore();
-      const now = admin.firestore.Timestamp.now();
       let totalDeleted = 0;
       
       // Get all searches
@@ -338,17 +361,17 @@ export class BatchRepository {
       
       for (const searchDoc of searches.docs) {
         const query = searchDoc.id;
-        const deleted = await this.deleteExpiredBatches(query);
+        const deleted = await this.deleteExpiredPages(query);
         totalDeleted += deleted;
       }
       
       if (totalDeleted > 0) {
-        logger.info(`🧹 Cleanup complete: Deleted ${totalDeleted} expired batches`);
+        logger.info(`🧹 Cleanup complete: Deleted ${totalDeleted} expired pages`);
       }
       
       return totalDeleted;
     } catch (error) {
-      logger.error('Error cleaning up expired batches:', error);
+      logger.error('Error cleaning up expired pages:', error);
       return 0;
     }
   }
