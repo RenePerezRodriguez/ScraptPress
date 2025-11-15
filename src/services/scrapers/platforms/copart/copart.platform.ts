@@ -36,7 +36,7 @@ export class CopartPlatform extends BasePlatform {
     const defaultConfig: PlatformConfig = {
       name: 'Copart',
       baseUrl: 'https://www.copart.com',
-      timeout: 60000,
+      timeout: 0,
       retries: 3,
       ...config
     };
@@ -70,6 +70,36 @@ export class CopartPlatform extends BasePlatform {
   }
 
   // ============= Initialization =============
+
+  /**
+   * Check if page shows Copart Error 15 (Access Denied by Imperva)
+   */
+  private async isCopartBlocked(): Promise<boolean> {
+    if (!this.page) return false;
+    
+    try {
+      const content = await this.page.content();
+      
+      // Detectar página de bloqueo de Imperva
+      const hasError15 = content.includes('Error 15') && content.includes('Access denied');
+      const hasImperva = content.includes('Powered by') && content.includes('Imperva');
+      const hasBlockedMessage = content.includes('This request was blocked by our security service');
+      
+      if (hasError15 || (hasImperva && hasBlockedMessage)) {
+        // Extraer IP si está disponible para logs
+        const ipMatch = content.match(/Your IP:\s*<\/span>\s*<span class="value">([0-9.]+)<\/span>/);
+        const yourIp = ipMatch ? ipMatch[1] : 'unknown';
+        
+        logger.warn(`🚫 COPART BLOCKED - Error 15 detected! Your IP: ${yourIp}`);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      logger.error('Error checking if blocked:', error);
+      return false;
+    }
+  }
 
   private async initialize(): Promise<void> {
     const isContainer = !!process.env.K_SERVICE || process.env.NODE_ENV === 'production';
@@ -166,8 +196,8 @@ export class CopartPlatform extends BasePlatform {
       );
     });
     
-    this.page.setDefaultTimeout(this.config.timeout || 60000);
-    this.page.setDefaultNavigationTimeout(this.config.timeout || 60000);
+    this.page.setDefaultTimeout(this.config.timeout || 0);
+    this.page.setDefaultNavigationTimeout(this.config.timeout || 0);
 
     await this.setupApiInterceptor();
   }
@@ -390,7 +420,7 @@ export class CopartPlatform extends BasePlatform {
     this.apiResponses.clear();
 
     const lotUrl = `${this.config.baseUrl}/lot/${lotNumber}`;
-    await this.page.goto(lotUrl, { waitUntil: 'domcontentloaded', timeout: this.config.timeout }).catch(() => {});
+    await this.page.goto(lotUrl, { waitUntil: 'domcontentloaded', timeout: 300000 }).catch(() => {});
     await this.page.waitForTimeout(500);
 
     const lotData = this.apiResponses.get('lot-details');
@@ -407,7 +437,11 @@ export class CopartPlatform extends BasePlatform {
 
   // ============= Search Scraping =============
 
-  private async switchToClassicView(pageSize: number): Promise<void> {
+  /**
+   * Set page size in Modern View (PrimeNG)
+   * Uses the p-dropdown component for rows per page
+   */
+  private async setModernViewPageSize(pageSize: number): Promise<void> {
     if (!this.page) return;
     
     try {
@@ -432,35 +466,48 @@ export class CopartPlatform extends BasePlatform {
         logger.info('✅ Captcha wait complete, continuing...');
       }
       
-      logger.info('🔍 Looking for Classic View button...');
+      logger.info(`📏 Setting page size to ${pageSize} in Modern View (PrimeNG)...`);
       
-      // Use centralized selectors from config
-      const selectors = CopartConfig.selectors.classicViewButton;
+      // PrimeNG dropdown selectors for rows per page
+      const dropdownSelectors = [
+        'p-dropdown.p-paginator-rpp-options',
+        '.p-paginator-rpp-options.p-dropdown',
+        '.p-paginator-bottom p-dropdown'
+      ];
       
-      // Try multiple times with longer waits
       for (let attempt = 1; attempt <= 3; attempt++) {
-        logger.debug(`Attempt ${attempt}/3 to find Classic View button`);
+        logger.debug(`Attempt ${attempt}/3 to find page size dropdown`);
         
-        for (const selector of selectors) {
+        for (const selector of dropdownSelectors) {
           try {
-            const button = await this.page.$(selector);
-            if (button) {
-              // Check if it's the classic view button by looking at the text
-              const buttonText = await this.page.evaluate((btn: any) => btn.textContent || '', button);
-              const hasClassicText = CopartConfig.textPatterns.classicViewButton.some(pattern => 
-                buttonText.includes(pattern)
-              );
+            const dropdown = await this.page.$(selector);
+            if (dropdown) {
+              logger.info(`✅ Found page size dropdown with selector: ${selector}`);
               
-              if (hasClassicText) {
-                logger.info(`✅ Found Classic View button with selector: ${selector}`);
-                await button.click();
-                logger.info('🔄 Clicked Classic View button');
-                await this.page.waitForTimeout(CopartConfig.classicView.switchTimeout);
-                
-                // Get valid page size from config
-                const validPageSize = CopartConfig.getValidPageSize(pageSize);
-                await this.setPageSize(validPageSize);
-                return;
+              // Click to open dropdown
+              await dropdown.click();
+              await this.page.waitForTimeout(1000);
+              
+              // Click on the option with desired page size
+              // Options are usually 10, 20, 50, 100
+              const optionSelectors = [
+                `p-dropdownitem:has-text("${pageSize}")`,
+                `.p-dropdown-item:has-text("${pageSize}")`,
+                `li[aria-label="${pageSize}"]`
+              ];
+              
+              for (const optionSelector of optionSelectors) {
+                try {
+                  const option = await this.page.$(optionSelector);
+                  if (option) {
+                    await option.click();
+                    logger.info(`✅ Selected page size: ${pageSize}`);
+                    await this.page.waitForTimeout(3000); // Wait for page reload
+                    return;
+                  }
+                } catch (e) {
+                  continue;
+                }
               }
             }
           } catch (e) {
@@ -476,216 +523,158 @@ export class CopartPlatform extends BasePlatform {
         }
       }
       
-      // If we get here, we couldn't find the button after 3 attempts
-      throw new Error('❌ Classic View button not found after 3 attempts. Cannot continue without classic view.');
+      logger.warn('⚠️ Could not set page size - will work with default (likely 20)');
     } catch (error) {
-      logger.error('❌ Critical error switching to classic view:', error);
-      throw error; // Re-throw to fail the scraping
-    }
-  }
-
-  private async setPageSize(size: number): Promise<void> {
-    if (!this.page) return;
-    
-    try {
-      // Wait for the select to be available after switching views
-      await this.page.waitForTimeout(2000);
-      
-      logger.info(`📏 Looking for page size selector...`);
-      
-      // Use centralized selectors from config
-      const selectors = CopartConfig.selectors.pageSizeDropdown;
-      
-      for (const selector of selectors) {
-        try {
-          const selectElement = await this.page.$(selector);
-          if (selectElement) {
-            logger.info(`✅ Found page size selector: ${selector}`);
-            
-            // Use Playwright's selectOption method - more reliable
-            // Valid options are: "5", "10", "20", "50", "100"
-            await this.page.selectOption(selector, String(size));
-            
-            // Verify the selection was made
-            const selectedValue = await this.page.$eval(selector, (el: any) => el.value);
-            logger.info(`✅ Page size set to ${size}, verified value: ${selectedValue}`);
-            
-            await this.page.waitForTimeout(3000); // Wait for page to reload with new size
-            return;
-          }
-        } catch (e) {
-          logger.debug(`Selector ${selector} failed:`, e);
-          continue;
-        }
-      }
-      
-      logger.warn('⚠️ Page size selector not found - will work with default page size');
-    } catch (error) {
-      logger.warn(`⚠️ Error setting page size to ${size} - continuing with defaults:`, error);
+      logger.warn(`⚠️ Error setting page size to ${pageSize} - continuing with defaults:`, error);
     }
   }
 
   /**
-   * Navigate to a specific page using Copart's pagination system
-   * Strategy: Click on page number button which has href with ?page=X
-   * More reliable than repeated "Siguiente" clicks
+   * Navigate to a specific page using PrimeNG pagination
+   * Strategy: Click on page number button or next/prev buttons
    */
-  private async navigateToPage(targetPage: number): Promise<void> {
+  private async navigateToModernPage(targetPage: number): Promise<void> {
     if (!this.page || targetPage <= 1) return;
     
-    logger.info(`📄 Navigating to page ${targetPage} using pagination buttons...`);
+    logger.info(`📄 Navigating to page ${targetPage} using PrimeNG pagination...`);
     
     try {
       // Wait for pagination to be ready
       await this.page.waitForTimeout(2000);
       
       // STRATEGY 1: Click directly on the page number button if visible
-      // The HTML shows: <a href="/lotSearchResults?...&page=5&..." data-dt-idx="5">5</a>
-      const pageNumberSelectors = [
-        `li.paginate_button a[href*="page=${targetPage}"]:not(.disabled)`,
-        `a[aria-controls="serverSideDataTable"][href*="page=${targetPage}"]`,
-        `#serverSideDataTable_paginate a:has-text("${targetPage}")`,
+      // PrimeNG uses: <button class="p-paginator-page" aria-label="X">
+      const pageButtonSelectors = [
+        `button.p-paginator-page[aria-label="${targetPage}"]`,
+        `.p-paginator-pages button:has-text("${targetPage}")`,
+        `button.p-paginator-element[aria-label="${targetPage}"]`
       ];
       
-      for (const selector of pageNumberSelectors) {
+      for (const selector of pageButtonSelectors) {
         try {
           const pageButton = await this.page.$(selector);
           if (pageButton) {
-            // Get the href to verify it has the correct page
-            const href = await this.page.evaluate((btn: any) => btn.href, pageButton);
-            
-            if (href && href.includes(`page=${targetPage}`)) {
-              logger.info(`✅ Found direct page ${targetPage} button, clicking...`);
-              
-              // Clear responses before clicking
-              this.apiResponses.clear();
-              this.currentExpectedPage = targetPage;
-              
-              await pageButton.click();
-              await this.page.waitForTimeout(4000); // Wait for page load
-              
-              logger.info(`✅ Successfully clicked page ${targetPage} button`);
-              return;
-            }
+            logger.info(`✅ Strategy 1: Found page ${targetPage} button, clicking...`);
+            await pageButton.click();
+            await this.page.waitForTimeout(3000);
+            return;
           }
         } catch (e) {
           continue;
         }
       }
       
-      // STRATEGY 2: If page number not visible, use "Siguiente" button repeatedly
-      // This happens when target page is far (e.g., page 20 when only 1-10 visible)
-      logger.info(`📄 Page ${targetPage} button not visible, using "Siguiente" button...`);
-      await this.navigateUsingNextButton(targetPage);
+      // STRATEGY 2: Use "Next" button multiple times
+      logger.info(`Strategy 2: Page ${targetPage} not visible, using Next button...`);
+      
+      // Get current page
+      const currentPageButton = await this.page.$('button.p-paginator-page.p-highlight');
+      let currentPage = 1;
+      if (currentPageButton) {
+        const pageText = await this.page.evaluate((btn: any) => btn.textContent?.trim(), currentPageButton);
+        currentPage = parseInt(pageText || '1');
+      }
+      
+      logger.info(`Current page: ${currentPage}, target: ${targetPage}`);
+      
+      const clicksNeeded = targetPage - currentPage;
+      if (clicksNeeded > 0) {
+        const nextButtonSelector = 'button.p-paginator-next:not([disabled])';
+        
+        for (let i = 0; i < clicksNeeded; i++) {
+          const nextButton = await this.page.$(nextButtonSelector);
+          if (!nextButton) {
+            logger.warn(`⚠️ Next button not found or disabled at iteration ${i + 1}`);
+            break;
+          }
+          
+          await nextButton.click();
+          logger.debug(`📄 Clicked Next button (${i + 1}/${clicksNeeded})`);
+          await this.page.waitForTimeout(2000);
+        }
+        
+        logger.info(`✅ Strategy 2: Navigated using Next button`);
+      }
       
     } catch (error) {
       logger.error(`❌ Error navigating to page ${targetPage}:`, error);
-      // STRATEGY 3: Fallback to URL manipulation
-      logger.warn(`⚠️ Falling back to URL navigation for page ${targetPage}`);
-      await this.navigateToPageByUrl(targetPage);
+      throw error;
     }
   }
 
-  /**
-   * Navigate using repeated "Siguiente" (Next) button clicks
-   * Used when target page button is not visible in pagination
-   */
-  private async navigateUsingNextButton(targetPage: number): Promise<void> {
+  private async scrapeSearch(url: string, maxItems: number, results: VehicleData[], expectedPageIndex?: number): Promise<void> {
     if (!this.page) return;
+
+    // 🔄 RETRY LOGIC: Intenta hasta 3 veces si Copart bloquea
+    const MAX_RETRIES = 3;
+    const WAIT_TIMES = [2 * 60 * 1000, 5 * 60 * 1000, 10 * 60 * 1000]; // 2, 5, 10 minutos
     
-    // Detect current page from active button
-    let currentPage = 1;
-    try {
-      const activePage = await this.page.$('li.paginate_button.active a');
-      if (activePage) {
-        const pageText = await this.page.evaluate((btn: any) => btn.textContent, activePage);
-        currentPage = parseInt(pageText) || 1;
-      }
-    } catch (e) {
-      logger.debug('Could not detect current page, assuming page 1');
-    }
-    
-    const clicksNeeded = targetPage - currentPage;
-    logger.info(`📄 Current page: ${currentPage}, need ${clicksNeeded} clicks to reach page ${targetPage}`);
-    
-    if (clicksNeeded <= 0) {
-      logger.info(`✅ Already on page ${targetPage}`);
-      return;
-    }
-    
-    for (let i = 0; i < clicksNeeded; i++) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        await this.page.waitForTimeout(1000);
+        logger.info(`🚀 Scraping attempt ${attempt}/${MAX_RETRIES}...`);
         
-        // Find "Siguiente" button
-        // HTML: <li class="paginate_button next" id="serverSideDataTable_next">
-        //         <a href="#" aria-controls="serverSideDataTable" data-dt-idx="9">Siguiente</a>
-        //       </li>
-        const nextButtonSelectors = [
-          'li.paginate_button.next:not(.disabled) a',
-          '#serverSideDataTable_next:not(.disabled) a',
-          'a[aria-controls="serverSideDataTable"]:has-text("Siguiente")',
-        ];
+        // Intentar scraping
+        await this.scrapeSearchInternal(url, maxItems, results, expectedPageIndex);
         
-        let clicked = false;
-        for (const selector of nextButtonSelectors) {
-          try {
-            const button = await this.page.$(selector);
-            if (button) {
-              // Verify parent li is not disabled
-              const isDisabled = await this.page.evaluate((btn: any) => {
-                return btn.parentElement?.classList.contains('disabled');
-              }, button);
-              
-              if (!isDisabled) {
-                logger.debug(`🖱️ Clicking "Siguiente" (${i + 1}/${clicksNeeded})`);
-                
-                this.apiResponses.clear();
-                this.currentExpectedPage = currentPage + i + 1;
-                
-                await button.click();
-                clicked = true;
-                await this.page.waitForTimeout(3000);
-                break;
-              }
-            }
-          } catch (e) {
+        // ✅ Verificar si obtuvimos datos
+        if (results.length > 0) {
+          logger.info(`✅ Scraping successful on attempt ${attempt}! Got ${results.length} vehicles`);
+          return; // Éxito, salir
+        }
+        
+        // ⚠️ No obtuvimos datos, verificar si estamos bloqueados
+        const isBlocked = await this.isCopartBlocked();
+        
+        if (isBlocked && attempt < MAX_RETRIES) {
+          const waitTime = WAIT_TIMES[attempt - 1];
+          const waitMinutes = Math.round(waitTime / 60000);
+          
+          logger.warn(`🚫 Copart Error 15 detected on attempt ${attempt}/${MAX_RETRIES}`);
+          logger.warn(`⏳ Waiting ${waitMinutes} minutes before retry ${attempt + 1}...`);
+          
+          await this.page.waitForTimeout(waitTime);
+          
+          // Recargar página para nuevo intento
+          logger.info(`🔄 Retrying after ${waitMinutes} minute wait...`);
+          continue;
+        }
+        
+        // Si no estamos bloqueados pero no hay datos, algo más está mal
+        if (!isBlocked) {
+          logger.warn(`⚠️ No data scraped but not blocked (attempt ${attempt}/${MAX_RETRIES})`);
+          
+          if (attempt < MAX_RETRIES) {
+            logger.info(`⏳ Waiting 30 seconds before retry...`);
+            await this.page.waitForTimeout(30000);
             continue;
           }
         }
         
-        if (!clicked) {
-          throw new Error(`Could not click "Siguiente" button on attempt ${i + 1}`);
+        // Último intento sin datos
+        if (attempt === MAX_RETRIES) {
+          logger.error(`❌ All ${MAX_RETRIES} attempts failed. No vehicles scraped.`);
+          return;
         }
         
       } catch (error) {
-        logger.error(`❌ Error on click ${i + 1}:`, error);
-        throw error;
+        logger.error(`❌ Error on scraping attempt ${attempt}/${MAX_RETRIES}:`, error);
+        
+        if (attempt < MAX_RETRIES) {
+          const waitTime = 30000; // 30 segundos en caso de error
+          logger.info(`⏳ Waiting 30 seconds before retry due to error...`);
+          await this.page.waitForTimeout(waitTime);
+          continue;
+        } else {
+          throw error; // Re-lanzar en último intento
+        }
       }
     }
-    
-    logger.info(`✅ Reached page ${targetPage} using "Siguiente" button`);
   }
 
   /**
-   * Fallback method: Navigate by URL manipulation
+   * Internal scraping method (sin retry logic)
    */
-  private async navigateToPageByUrl(pageNumber: number): Promise<void> {
-    if (!this.page) return;
-    
-    logger.debug(`🔗 Fallback: Navigating to page ${pageNumber} by URL`);
-    
-    const currentUrl = this.page.url();
-    const url = new URL(currentUrl);
-    url.searchParams.set('page', String(pageNumber));
-    
-    this.currentExpectedPage = pageNumber;
-    this.apiResponses.clear();
-    
-    await this.page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: this.config.timeout });
-  }
-
-  private async scrapeSearch(url: string, maxItems: number, results: VehicleData[], expectedPageIndex?: number): Promise<void> {
+  private async scrapeSearchInternal(url: string, maxItems: number, results: VehicleData[], expectedPageIndex?: number): Promise<void> {
     if (!this.page) return;
 
     // NUEVA ESTRATEGIA: No incluir ?page en la URL inicial
@@ -712,7 +701,14 @@ export class CopartPlatform extends BasePlatform {
 
     // Navigate to BASE URL with random delay to appear more human
     await this.page.waitForTimeout(Math.random() * 2000 + 1000);
-    await this.page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: this.config.timeout }).catch(() => {});
+    await this.page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 0 }).catch(() => {});
+    
+    // ✅ DETECCIÓN TEMPRANA DE BLOQUEO
+    const blockedAfterNav = await this.isCopartBlocked();
+    if (blockedAfterNav) {
+      logger.warn(`🚫 Detected Error 15 immediately after navigation`);
+      return; // Salir para que el retry maneje
+    }
     
     // Wait for network idle with human-like delay
     await this.page.waitForTimeout(Math.random() * 1500 + 2000);
@@ -727,16 +723,13 @@ export class CopartPlatform extends BasePlatform {
       await this.page.waitForTimeout(30000);
     }
     
-    // Step 1: Switch to classic view
-    await this.switchToClassicView(maxItems);
+    // Step 1: Set page size using Modern View (PrimeNG)
+    await this.setModernViewPageSize(maxItems);
     
-    // Step 2: Configure page size (this triggers a reload)
-    // Page size is already set in switchToClassicView, but we're already on page 1
-    
-    // Step 3: Navigate to target page if needed (using "Siguiente" button)
+    // Step 2: Navigate to target page if needed (using PrimeNG pagination)
     if (targetPage > 1) {
       logger.info(`📄 Now navigating from page 1 to page ${targetPage}...`);
-      await this.navigateToPage(targetPage);
+      await this.navigateToModernPage(targetPage);
     }
     
     // Wait for API response with the correct page data
@@ -1018,7 +1011,7 @@ export class CopartPlatform extends BasePlatform {
             
             await dedicatedPage.goto(lotUrl, { 
               waitUntil: 'domcontentloaded',
-              timeout: 15000 
+              timeout: 0 // No timeout - wait as long as needed
             });
             
             await dedicatedPage.waitForTimeout(500);

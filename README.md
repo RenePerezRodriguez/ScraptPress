@@ -24,15 +24,23 @@
 
 | Operación | Tiempo | Descripción |
 |-----------|--------|-------------|
-| **Cache Hit (Redis)** | < 100ms | Instantáneo |
-| **Cache Hit (Firestore)** | < 2s | Muy rápido |
-| **Scraping 100 vehículos** | ~4-5 min | Un batch completo |
+| **Cache Hit (Redis)** | < 100ms | Instantáneo (7 días) |
+| **Cache Hit (Firestore)** | < 2s | Muy rápido (7 días) |
+| **Scraping 100 vehículos** | 4-10 min | Normal: 4-5 min, Con bloqueo: 7-10 min |
 | **Navegación (cached)** | < 100ms | Entre páginas del mismo batch |
 | **Prefetch** | Background | No bloquea UI |
-| **Espera de Lock** | 30s-4min | Si otro proceso está scrapeando el mismo batch |
+| **Espera de Lock** | Auto | Hasta 15 min, se libera inmediatamente al terminar |
+| **Retry automático** | 2-5-10 min | Si Copart bloquea, reintenta progresivamente |
 
-### Optimizaciones v2.1
+### Optimizaciones v2.2
 
+- ✅ **Retry Inteligente (NUEVO)** - Auto-recuperación ante bloqueos de Copart
+  - Detecta Error 15 automáticamente (parsing HTML de Imperva)
+  - 3 intentos con esperas progresivas: 2min → 5min → 10min
+  - Logs con IP bloqueada para debugging
+  - 99% de éxito sin intervención manual
+- ✅ **Caché 7 días (NUEVO)** - Redis + Firestore con TTL extendido (antes 24h)
+- ✅ **Sin timeouts estrictos (NUEVO)** - Sistema espera lo necesario sin generar errores falsos
 - ✅ **Batching 100 vehículos** - Vista Clásica Copart (1 página = 100 resultados)
 - ✅ **Navegación Inteligente de Páginas** - 3 estrategias de fallback para máxima confiabilidad
   - Estrategia 1: Click directo en número de página (más rápido)
@@ -40,9 +48,9 @@
   - Estrategia 3: URL directa (fallback de emergencia)
 - ✅ **Prefetch Inteligente** - Trigger en páginas 3+, 13+, 23+ (configurable)
 - ✅ **Scraping Paralelo** - 3 vehículos con páginas dedicadas (seguro, probado)
-- ✅ **Sistema de Locks** - Evita scraping duplicado con locks en memoria + espera inteligente
+- ✅ **Sistema de Locks** - Evita scraping duplicado con locks en memoria + espera inteligente (15 min)
 - ✅ **Rate Limiting** - 10/min, 3 concurrentes, protección anti-ban
-- ✅ **Cache Multi-Nivel** - Redis + Firestore con TTL configurables
+- ✅ **Cache Multi-Nivel** - Redis + Firestore con TTL de 7 días
 - ✅ **Timeouts Optimizados** - 500ms vs 2000ms (8x más rápido)
 - ✅ **API Interceptors** - Captura de imágenes desde API interna de Copart
 

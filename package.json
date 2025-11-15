@@ -24,7 +24,10 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon",
+    "dev:local": "NODE_ENV=development nodemon",
+    "dev:prod": "NODE_ENV=production nodemon",
     "build": "tsc",
+    "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "typecheck:watch": "tsc --noEmit --watch",
     "test": "jest",
@@ -32,7 +35,8 @@
     "test:coverage": "jest --coverage",
     "lint": "echo 'No linter configured yet'",
     "clean": "rm -rf dist",
-    "deploy": "npm run build && gcloud run deploy",
+    "deploy": "npm run build && gcloud run deploy scraptpress --source . --region us-central1 --timeout=900s",
+    "logs": "gcloud logging read 'resource.type=cloud_run_revision AND resource.labels.service_name=scraptpress' --limit=50 --format=\"table(timestamp,textPayload)\" --project=studio-6719476275-3891a --freshness=10m",
     "postinstall": "npx playwright install chromium --with-deps"
   },
   "engines": {

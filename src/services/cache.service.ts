@@ -34,12 +34,21 @@ export class CacheService {
       const redisHost = process.env.REDIS_HOST || 'localhost';
       const redisPort = parseInt(process.env.REDIS_PORT || '6379');
       const redisPassword = process.env.REDIS_PASSWORD;
+      const redisTls = process.env.REDIS_TLS === 'true';
+
+      logger.info(`Connecting to Redis at ${redisHost}:${redisPort} (TLS: ${redisTls})`);
 
       this.client = createClient({
-        socket: {
-          host: redisHost,
-          port: redisPort,
-        },
+        socket: redisTls 
+          ? {
+              host: redisHost,
+              port: redisPort,
+              tls: true,
+            }
+          : {
+              host: redisHost,
+              port: redisPort,
+            },
         password: redisPassword || undefined,
       });
 

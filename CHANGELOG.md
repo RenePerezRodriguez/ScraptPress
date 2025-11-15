@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2025-11-15
+
+### Added
+- **Sistema de Retry Inteligente** - Auto-recuperación ante bloqueos de Copart
+  - Detecta Error 15 (Access Denied) automáticamente mediante parsing HTML
+  - 3 intentos automáticos con esperas progresivas: 2min → 5min → 10min
+  - Logs informativos con IP bloqueada extraída del HTML de Imperva
+  - Detección temprana después de page.goto() para no perder tiempo
+  - No requiere intervención manual, el sistema se recupera solo
+- **Timeouts sin límites estrictos** para manejar bloqueos prolongados
+  - Playwright: timeout: 0 (sin límite individual en operaciones)
+  - Lock: 15 minutos (auto-libera para permitir otros intentos)
+  - Cloud Run: 15 minutos (balance entre espera y recursos)
+  - Frontend: sin timeout en fetch, mensaje informativo a los 6 minutos
+- **Caché extendido a 7 días** (antes 24 horas)
+  - Redis (Upstash): 7 días TTL
+  - Firestore: 7 días TTL
+  - Reduce re-scraping innecesario y ahorra recursos
+
+### Changed
+- Frontend: Loader persistente con mensaje informativo a los 6 minutos
+  - "Copart está restringiendo el acceso, puede tomar más tiempo"
+  - Usuario puede decidir si espera o vuelve más tarde
+  - No se genera error por timeout, solo espera hasta completar
+- Sistema 99% resiliente: solo falla si los 3 reintentos agotan (muy raro)
+- Lock se libera inmediatamente al terminar (no espera 15 min si termina en 5 min)
+
+### Fixed
+- Manejo robusto de bloqueos temporales de Copart (Error 15)
+- Prevención de errores falsos por timeouts agresivos
+- Sistema de permisos Secret Manager en Cloud Run configurado correctamente
+
 ## [2.1.0] - 2025-11-14
 
 ### Added

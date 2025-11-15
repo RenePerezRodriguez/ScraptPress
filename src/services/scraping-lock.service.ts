@@ -17,7 +17,7 @@ interface LockInfo {
 
 class ScrapingLockService {
   private locks: Map<string, LockInfo> = new Map();
-  private readonly LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes max lock time
+  private readonly LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos max lock time
 
   /**
    * Try to acquire a lock for scraping a specific batch
@@ -106,7 +106,7 @@ class ScrapingLockService {
   async waitForLock(
     query: string, 
     batchNumber: number, 
-    maxWaitMs: number = 5 * 60 * 1000 // 5 minutes default
+    maxWaitMs: number = 15 * 60 * 1000 // 15 minutos default
   ): Promise<boolean> {
     const lockKey = this.getLockKey(query, batchNumber);
     const startWait = Date.now();

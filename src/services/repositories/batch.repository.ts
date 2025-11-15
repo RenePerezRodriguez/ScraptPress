@@ -54,7 +54,7 @@ export class BatchRepository {
       const normalizedQuery = query.toLowerCase().trim();
       
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours TTL
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 días TTL
       
       const batchDoc: BatchDocument = {
         metadata: {

@@ -202,8 +202,8 @@ router.get('/hybrid', authenticateApiKey, rateLimiter(), async (req: Request, re
       const firestoreBatch = await BatchRepository.getBatch(query, batchNumber);
       
       if (firestoreBatch && firestoreBatch.length > 0) {
-        // Cache in Redis for next time (L1 cache)
-        await cache.set(cacheKey, { vehicles: firestoreBatch }, 3600);
+        // Cache in Redis for next time (L1 cache) - 7 días
+        await cache.set(cacheKey, { vehicles: firestoreBatch }, 604800);
         
         const paginatedVehicles = firestoreBatch.slice(
           offsetInBatch,
@@ -295,8 +295,8 @@ router.get('/hybrid', authenticateApiKey, rateLimiter(), async (req: Request, re
       });
     }
     
-    // Cache the full batch in Redis (L1)
-    await cache.set(cacheKey, { vehicles: scrapedVehicles }, 3600);
+    // Cache the full batch in Redis (L1) - 7 días TTL
+    await cache.set(cacheKey, { vehicles: scrapedVehicles }, 604800);
     
     // Save to Firestore in background (L2 - optimized structure)
     BatchRepository.saveBatch(query, batchNumber, scrapedVehicles, scrapeDuration)
@@ -551,7 +551,7 @@ router.get('/intelligent', authenticateApiKey, rateLimiter(), async (req: Reques
         source: 'cache',
         cached: true,
         query,
-        frontendPage,
+        page: frontendPage,
         hasMore: true, // Asumir que hay más batches disponibles
         batch: {
           number: batchNumber,
@@ -572,8 +572,8 @@ router.get('/intelligent', authenticateApiKey, rateLimiter(), async (req: Reques
     if (scrapingLockService.isLocked(query, batchNumber)) {
       logger.info(`⏳ Batch ${batchNumber} is being scraped by another request, waiting...`);
       
-      // Wait for the other scraping to complete (max 6 minutes)
-      const lockReleased = await scrapingLockService.waitForLock(query, batchNumber, 6 * 60 * 1000);
+      // Wait for the other scraping to complete (max 15 minutos)
+      const lockReleased = await scrapingLockService.waitForLock(query, batchNumber, 15 * 60 * 1000);
       
       if (lockReleased) {
         // Lock was released, try to get batch from cache again
@@ -587,7 +587,7 @@ router.get('/intelligent', authenticateApiKey, rateLimiter(), async (req: Reques
             source: 'firestore-after-wait',
             cached: true,
             query,
-            frontendPage,
+            page: frontendPage,
             hasMore: true,
             batch: {
               number: batchNumber,
@@ -611,7 +611,7 @@ router.get('/intelligent', authenticateApiKey, rateLimiter(), async (req: Reques
     if (!lockId) {
       // Another request just acquired the lock, wait again
       logger.info(`🔒 Could not acquire lock (race condition), waiting again...`);
-      await scrapingLockService.waitForLock(query, batchNumber, 6 * 60 * 1000);
+      await scrapingLockService.waitForLock(query, batchNumber, 15 * 60 * 1000);
       
       // Try to get from cache after second wait
       const vehiclesAfterRetry = await BatchRepository.getBatch(query, batchNumber);
@@ -622,7 +622,7 @@ router.get('/intelligent', authenticateApiKey, rateLimiter(), async (req: Reques
           source: 'firestore-after-retry',
           cached: true,
           query,
-          frontendPage,
+          page: frontendPage,
           hasMore: true,
           batch: {
             number: batchNumber,
@@ -673,7 +673,7 @@ router.get('/intelligent', authenticateApiKey, rateLimiter(), async (req: Reques
           error: 'No vehicles found for this batch',
           message: 'Copart scraping failed or no results available',
           query,
-          frontendPage,
+          page: frontendPage,
           batch: {
             number: batchNumber,
             attempted: true,
@@ -699,7 +699,7 @@ router.get('/intelligent', authenticateApiKey, rateLimiter(), async (req: Reques
         cached: false,
         fresh: true,
         query,
-        frontendPage,
+        page: frontendPage,
         hasMore: true, // Asumir que hay más batches disponibles
         batch: {
           number: batchNumber,
@@ -833,8 +833,8 @@ router.get('/prefetch', authenticateApiKey, rateLimiter(), async (req: Request, 
       );
       const scrapeDuration = (Date.now() - scrapeStart) / 1000;
       
-      // Cache batch
-      await cache.set(cacheKey, { vehicles: scrapedVehicles }, 3600);
+      // Cache batch - 7 días TTL
+      await cache.set(cacheKey, { vehicles: scrapedVehicles }, 604800);
       
       // Save to Firestore in background
       Promise.all(
