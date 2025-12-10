@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build (se recompila en Docker)
+dist
+.dist
+
+# Environment variables (configurar en Cloud Run)
+.env
+.env.*
+*.env
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage
+tests
+__tests__
+
+# Documentation
+docs
+*.md
+README*
+RESUMEN*
+CHANGELOG*
+
+# Scripts
+scripts/*.ps1
+scripts/*.sh
+docker-compose*.yml
+nodemon.json
+
+# Firebase credentials (CRÍTICO: nunca incluir)
+*firebase*.json
+*adminsdk*.json
+studio-*.json
+
+# Temporal
+tmp
+temp
+.cache
+

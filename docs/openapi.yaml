@@ -1,0 +1,1257 @@
+openapi: 3.0.3
+info:
+  title: ScraptPress API
+  description: |
+    API profesional para scraping de vehículos de subastas (Copart, IAAI, Manheim).
+    
+    **Características principales:**
+    - Búsqueda síncrona y asíncrona de vehículos
+    - Sistema de caché multicapa (Redis + Firestore)
+    - Cola asíncrona con Bull Queue para procesamiento en background
+    - Rate limiting y protección anti-abuse
+    - Validación de seguridad (XSS, SQL Injection, Path Traversal)
+    - Request ID tracking para trazabilidad distribuida
+    - Métricas de salud y rendimiento en tiempo real
+    - Extracción con IA (Gemini Vision) opcional
+    - Cumplimiento GDPR completo
+    - Server-Sent Events para logs en tiempo real
+    
+    **Autenticación:**
+    - API Key: Header `X-API-Key` para endpoints públicos
+    - Admin Token: Header `X-Admin-Token` para operaciones administrativas
+    
+    **Rate Limiting:**
+    - 100 requests/minuto por IP/API Key
+    - 10 búsquedas simultáneas por usuario
+    - Límites personalizados para API Keys premium
+    
+  version: 3.1.0
+  contact:
+    name: ScraptPress Support
+    email: support@sumtrading.us
+    url: https://github.com/RenePerezRodriguez/ScraptPress
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+
+servers:
+  - url: https://scrap.sumtrading.us/api
+    description: Production Server (Cloud Run)
+  - url: http://localhost:3000/api
+    description: Local Development Server
+
+tags:
+  - name: Search
+    description: Búsqueda de vehículos (síncrono y asíncrono)
+  - name: Vehicle
+    description: Detalles individuales de vehículos
+  - name: Monitoring
+    description: Salud del sistema y métricas
+  - name: GDPR
+    description: Privacidad y cumplimiento GDPR/CCPA
+  - name: Scraper
+    description: Streaming en tiempo real de eventos
+  - name: Cache
+    description: Optimización y lookup en Firestore
+
+paths:
+  /search/vehicles:
+    get:
+      tags:
+        - Search
+      summary: Buscar vehículos (modo síncrono o asíncrono)
+      description: |
+        Sistema principal de búsqueda de vehículos con dos modos de operación:
+        
+        **Modo Síncrono (async=false):**
+        - Espera el resultado completo del scraping
+        - Timeout: 60 segundos
+        - Retorna vehículos inmediatamente
+        - Ideal para búsquedas rápidas
+        
+        **Modo Asíncrono (async=true):**
+        - Encola el job en Bull Queue
+        - Retorna batchId inmediatamente
+        - Consultar estado con GET /search/status/:batchId
+        - Ideal para búsquedas largas o múltiples páginas
+        
+        **Validaciones de seguridad:**
+        - Detecta y rechaza patrones XSS (11 patrones)
+        - Detecta y rechaza SQL Injection (7 patrones)
+        - Detecta y rechaza Path Traversal (4 patrones)
+        - Sanitización automática de queries
+        
+        **Sistema de caché:**
+        1. Redis (rápido, TTL corto)
+        2. Firestore (persistente, histórico)
+        3. Scraping en vivo (si no hay caché)
+      operationId: searchVehicles
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: Consulta de búsqueda (marca, modelo, VIN, lote)
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 200
+          examples:
+            brand:
+              value: "toyota camry"
+              summary: Búsqueda por marca y modelo
+            vin:
+              value: "1HGBH41JXMN109186"
+              summary: Búsqueda por VIN
+            lot:
+              value: "12345678"
+              summary: Búsqueda por número de lote
+        - name: page
+          in: query
+          required: false
+          description: Número de página (empieza en 1)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: Vehículos por página
+          schema:
+            type: integer
+            enum: [10, 50, 100]
+            default: 10
+        - name: async
+          in: query
+          required: false
+          description: Modo de operación
+          schema:
+            type: string
+            enum: [true, false]
+            default: false
+      responses:
+        '200':
+          description: Búsqueda exitosa
+          headers:
+            X-Request-ID:
+              description: ID único de la petición
+              schema:
+                type: string
+                format: uuid
+            X-Cache-Hit:
+              description: Indica si proviene del caché
+              schema:
+                type: boolean
+            X-RateLimit-Remaining:
+              description: Requests restantes
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/SyncSearchResponse'
+                  - $ref: '#/components/schemas/AsyncSearchResponse'
+              examples:
+                sync_success:
+                  summary: Respuesta síncrona exitosa
+                  value:
+                    success: true
+                    async: false
+                    vehicles: []
+                    total: 150
+                    page: 1
+                    limit: 10
+                    hasMore: true
+                    query: "toyota camry"
+                    cached: true
+                    source: "redis"
+                    timestamp: "2024-01-15T10:30:00.000Z"
+                async_queued:
+                  summary: Job encolado (modo async)
+                  value:
+                    success: true
+                    async: true
+                    batchId: "batch-uuid-12345"
+                    status: "queued"
+                    message: "Scraping job queued successfully"
+                    checkStatusUrl: "/api/search/status/batch-uuid-12345"
+                    estimatedTime: 30
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /search/status/{batchId}:
+    get:
+      tags:
+        - Search
+      summary: Consultar estado de job asíncrono
+      description: |
+        Obtiene el estado actual de un job de scraping asíncrono.
+        
+        **Estados posibles:**
+        - `queued`: En cola, esperando procesamiento
+        - `processing`: Actualmente scrapeando
+        - `completed`: Finalizado exitosamente
+        - `failed`: Error durante el scraping
+        
+        **Polling recomendado:**
+        - Interval: 2-5 segundos
+        - Timeout: 5 minutos
+      operationId: getJobStatus
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: batchId
+          in: path
+          required: true
+          description: ID del batch retornado por búsqueda asíncrona
+          schema:
+            type: string
+          example: "batch-uuid-12345"
+      responses:
+        '200':
+          description: Estado del job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+              examples:
+                queued:
+                  summary: Job en cola
+                  value:
+                    success: true
+                    batchId: "batch-uuid-12345"
+                    status: "queued"
+                    position: 3
+                    estimatedTime: 15
+                processing:
+                  summary: Job procesando
+                  value:
+                    success: true
+                    batchId: "batch-uuid-12345"
+                    status: "processing"
+                    progress: 65
+                    vehiclesFound: 45
+                completed:
+                  summary: Job completado
+                  value:
+                    success: true
+                    batchId: "batch-uuid-12345"
+                    status: "completed"
+                    vehicles: []
+                    total: 150
+                    completedAt: "2024-01-15T10:31:30.000Z"
+        '404':
+          description: Job no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /search/stats:
+    get:
+      tags:
+        - Search
+      summary: Estadísticas de búsquedas
+      description: Obtiene estadísticas globales del sistema de búsqueda
+      operationId: getSearchStats
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Estadísticas del sistema
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalSearches:
+                    type: integer
+                    example: 10500
+                  cacheHitRate:
+                    type: number
+                    description: Porcentaje de hits en caché
+                    example: 72.5
+                  avgResponseTime:
+                    type: number
+                    description: Tiempo promedio de respuesta en ms
+                    example: 245.8
+                  topQueries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        query:
+                          type: string
+                        count:
+                          type: integer
+
+  /search/popular:
+    get:
+      tags:
+        - Search
+      summary: Búsquedas populares
+      description: Obtiene las búsquedas más frecuentes
+      operationId: getPopularSearches
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Lista de búsquedas populares
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  searches:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PopularSearch'
+                  count:
+                    type: integer
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /search/firestore-lookup:
+    get:
+      tags:
+        - Cache
+      summary: Lookup optimizado en Firestore
+      description: |
+        Busca un vehículo específico en los batches cacheados de Firestore.
+        Evita re-scrapear vehículos que ya están en caché.
+        Usado principalmente por la página de detalles de vehículo.
+      operationId: firestoreLookup
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: Query de búsqueda original
+          schema:
+            type: string
+        - name: lot
+          in: query
+          required: true
+          description: Número de lote del vehículo
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resultado del lookup
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  found:
+                    type: boolean
+                  vehicle:
+                    $ref: '#/components/schemas/OptimizedVehicle'
+                  batch:
+                    type: string
+                  query:
+                    type: string
+
+  /vehicle/{lotNumber}:
+    get:
+      tags:
+        - Vehicle
+      summary: Información básica del vehículo
+      description: Obtiene información básica desde Firestore (caché)
+      operationId: getVehicleByLot
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: lotNumber
+          in: path
+          required: true
+          description: Número de lote del vehículo
+          schema:
+            type: string
+          example: "12345678"
+      responses:
+        '200':
+          description: Vehículo encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  vehicle:
+                    $ref: '#/components/schemas/OptimizedVehicle'
+        '404':
+          description: Vehículo no encontrado
+
+  /vehicle/{lotNumber}/details:
+    get:
+      tags:
+        - Vehicle
+      summary: Detalles extendidos del vehículo
+      description: |
+        Obtiene información detallada haciendo scraping directo de Copart:
+        - VIN completo
+        - Galería completa de imágenes (HD)
+        - Highlights del vehículo
+        - Video del motor (si disponible)
+        - Información completa de daños
+        - Historial de ofertas
+      operationId: getVehicleDetails
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: lotNumber
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalles completos del vehículo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  vehicle:
+                    $ref: '#/components/schemas/VehicleDetails'
+
+  /health:
+    get:
+      tags:
+        - Monitoring
+      summary: Estado de salud del sistema
+      description: |
+        Verifica el estado de todos los servicios del sistema:
+        - Redis (conexión y latencia)
+        - Firestore (conexión y latencia)
+        - Bull Queue (estadísticas)
+        - Sistema (memoria, CPU, uptime)
+        - Workers (estado y concurrencia)
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Sistema saludable
+          headers:
+            X-Request-ID:
+              schema:
+                type: string
+                format: uuid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Sistema degradado o no disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      tags:
+        - Monitoring
+      summary: Métricas del sistema
+      description: |
+        Retorna métricas detalladas de rendimiento:
+        - Requests totales y tasa de éxito
+        - Tiempo promedio de respuesta
+        - Uso de caché (hits/misses)
+        - Estado de workers
+        - Uso de memoria y CPU
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Métricas del sistema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+
+  /metrics/reset:
+    post:
+      tags:
+        - Monitoring
+      summary: Resetear métricas (Admin)
+      description: Reinicia todas las métricas del sistema
+      operationId: resetMetrics
+      security:
+        - AdminAuth: []
+      responses:
+        '200':
+          description: Métricas reseteadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /gdpr/access-data:
+    post:
+      tags:
+        - GDPR
+      summary: Solicitar acceso a datos personales
+      description: |
+        Solicitud GDPR Artículo 15 - Derecho de acceso.
+        El usuario recibirá sus datos por email en 7 días hábiles.
+      operationId: requestDataAccess
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Solicitud recibida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GDPRResponse'
+
+  /gdpr/delete-data:
+    post:
+      tags:
+        - GDPR
+      summary: Solicitar eliminación de datos
+      description: |
+        Solicitud GDPR Artículo 17 - Derecho al olvido.
+        Datos eliminados en 30 días según normativa.
+      operationId: requestDataDeletion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Solicitud recibida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GDPRResponse'
+
+  /gdpr/data-portability:
+    post:
+      tags:
+        - GDPR
+      summary: Solicitar portabilidad de datos
+      description: |
+        Solicitud GDPR Artículo 20 - Derecho a la portabilidad.
+        Datos en formato JSON/CSV en 7 días hábiles.
+      operationId: requestDataPortability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Solicitud recibida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GDPRResponse'
+
+  /gdpr/consent-record:
+    get:
+      tags:
+        - GDPR
+      summary: Obtener registro de consentimientos
+      description: Consulta el estado actual de consentimientos del usuario
+      operationId: getConsentRecord
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+      responses:
+        '200':
+          description: Registro de consentimientos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentRecord'
+
+  /gdpr/update-consent:
+    post:
+      tags:
+        - GDPR
+      summary: Actualizar consentimientos
+      description: Actualiza las preferencias de cookies y procesamiento
+      operationId: updateConsent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - consents
+              properties:
+                email:
+                  type: string
+                  format: email
+                consents:
+                  type: object
+                  properties:
+                    necessary:
+                      type: boolean
+                    analytics:
+                      type: boolean
+                    marketing:
+                      type: boolean
+      responses:
+        '200':
+          description: Consentimientos actualizados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /gdpr/requests:
+    get:
+      tags:
+        - GDPR
+      summary: Ver todas las solicitudes GDPR (Admin)
+      description: Lista todas las solicitudes GDPR pendientes
+      operationId: getGDPRRequests
+      security:
+        - AdminAuth: []
+      responses:
+        '200':
+          description: Lista de solicitudes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalRequests:
+                    type: integer
+                  byType:
+                    type: object
+                    properties:
+                      access:
+                        type: integer
+                      delete:
+                        type: integer
+                      portability:
+                        type: integer
+                  requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GDPRRequest'
+
+  /scraper/events:
+    get:
+      tags:
+        - Scraper
+      summary: Stream de eventos en tiempo real (SSE)
+      description: |
+        Server-Sent Events para monitorear scraping en tiempo real.
+        
+        **Tipos de eventos:**
+        - `started`: Scraping iniciado
+        - `progress`: Progreso actual
+        - `vehicle`: Vehículo encontrado
+        - `completed`: Scraping completado
+        - `error`: Error durante scraping
+        
+        **Uso:**
+        ```javascript
+        const eventSource = new EventSource('/api/scraper/events');
+        eventSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log(data);
+        };
+        ```
+      operationId: streamScrapingEvents
+      responses:
+        '200':
+          description: Stream SSE
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                event: started
+                data: {"batchId":"batch-123","query":"toyota"}
+                
+                event: progress
+                data: {"batchId":"batch-123","progress":50,"vehiclesFound":25}
+                
+                event: completed
+                data: {"batchId":"batch-123","total":50}
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API Key para autenticación de endpoints públicos.
+        También se acepta en header `Authorization` como `Bearer {key}`.
+        
+        **Obtención:**
+        Contacta a support@sumtrading.us para obtener tu API Key.
+        
+    AdminAuth:
+      type: apiKey
+      in: header
+      name: X-Admin-Token
+      description: |
+        Token de administrador para operaciones sensibles.
+        Solo para personal autorizado.
+
+  schemas:
+    SyncSearchResponse:
+      type: object
+      required:
+        - success
+        - async
+        - vehicles
+        - total
+        - page
+        - limit
+      properties:
+        success:
+          type: boolean
+          example: true
+        async:
+          type: boolean
+          example: false
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/OptimizedVehicle'
+        total:
+          type: integer
+          example: 150
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        hasMore:
+          type: boolean
+        query:
+          type: string
+        cached:
+          type: boolean
+        source:
+          type: string
+          enum: [redis, firestore, live]
+        timestamp:
+          type: string
+          format: date-time
+
+    AsyncSearchResponse:
+      type: object
+      required:
+        - success
+        - async
+        - batchId
+        - status
+      properties:
+        success:
+          type: boolean
+        async:
+          type: boolean
+          example: true
+        batchId:
+          type: string
+          example: "batch-uuid-12345"
+        status:
+          type: string
+          enum: [queued, processing]
+        message:
+          type: string
+        checkStatusUrl:
+          type: string
+        estimatedTime:
+          type: integer
+          description: Tiempo estimado en segundos
+
+    JobStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        batchId:
+          type: string
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        position:
+          type: integer
+          description: Posición en cola (solo si queued)
+        progress:
+          type: integer
+          description: Progreso 0-100 (solo si processing)
+        vehiclesFound:
+          type: integer
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/OptimizedVehicle'
+        error:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+
+    OptimizedVehicle:
+      type: object
+      description: Estructura optimizada de vehículo
+      required:
+        - lot_number
+        - year
+        - make
+        - model
+      properties:
+        lot_number:
+          type: string
+          example: "12345678"
+        vin:
+          type: string
+          example: "1HGBH41JXMN109186"
+        year:
+          type: integer
+          example: 2020
+        make:
+          type: string
+          example: "Toyota"
+        model:
+          type: string
+          example: "Camry"
+        trim:
+          type: string
+          example: "LE"
+        color:
+          type: string
+          example: "Silver"
+        odometer:
+          type: integer
+          example: 45000
+        engine:
+          type: string
+          example: "2.5L 4-Cylinder"
+        transmission:
+          type: string
+          example: "Automatic"
+        fuel:
+          type: string
+          example: "Gasoline"
+        damage:
+          type: string
+          example: "Front End"
+        title:
+          type: string
+          example: "Salvage"
+        location:
+          type: string
+          example: "Los Angeles, CA"
+        sale_date:
+          type: string
+          format: date-time
+        estimated_value:
+          type: number
+          example: 12500.00
+        current_bid:
+          type: number
+          example: 8500.00
+        buy_now_price:
+          type: number
+          example: 15000.00
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+        thumbnail:
+          type: string
+          format: uri
+        highlights:
+          type: array
+          items:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    VehicleDetails:
+      allOf:
+        - $ref: '#/components/schemas/OptimizedVehicle'
+        - type: object
+          properties:
+            full_vin:
+              type: string
+            high_res_images:
+              type: array
+              items:
+                type: string
+                format: uri
+            engine_video:
+              type: string
+              format: uri
+            damage_details:
+              type: object
+            bid_history:
+              type: array
+              items:
+                type: object
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: number
+          description: Segundos de actividad
+        services:
+          type: object
+          properties:
+            redis:
+              $ref: '#/components/schemas/ServiceHealth'
+            firestore:
+              $ref: '#/components/schemas/ServiceHealth'
+            queue:
+              $ref: '#/components/schemas/QueueHealth'
+        system:
+          type: object
+          properties:
+            memory:
+              type: object
+              properties:
+                used:
+                  type: number
+                total:
+                  type: number
+                percentage:
+                  type: number
+            cpu:
+              type: object
+              properties:
+                usage:
+                  type: number
+
+    ServiceHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [connected, disconnected, error]
+        latencyMs:
+          type: number
+        error:
+          type: string
+
+    QueueHealth:
+      type: object
+      properties:
+        active:
+          type: integer
+        waiting:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+
+    MetricsResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        current:
+          type: object
+          properties:
+            uptime:
+              type: number
+            memoryUsage:
+              type: object
+            activeConnections:
+              type: integer
+        requests:
+          type: object
+          properties:
+            total:
+              type: integer
+            successful:
+              type: integer
+            failed:
+              type: integer
+            avgResponseTimeMs:
+              type: number
+        cache:
+          type: object
+          properties:
+            hits:
+              type: integer
+            misses:
+              type: integer
+            hitRate:
+              type: number
+        workers:
+          type: object
+          properties:
+            active:
+              type: integer
+            totalJobs:
+              type: integer
+            completedJobs:
+              type: integer
+            failedJobs:
+              type: integer
+
+    PopularSearch:
+      type: object
+      properties:
+        query:
+          type: string
+        count:
+          type: integer
+        last_searched:
+          type: string
+          format: date-time
+        avg_results:
+          type: integer
+
+    GDPRResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        details:
+          type: string
+        requestId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    GDPRRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        type:
+          type: string
+          enum: [access, delete, portability]
+        reason:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    ConsentRecord:
+      type: object
+      properties:
+        email:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        consents:
+          type: object
+          properties:
+            necessary:
+              type: boolean
+            analytics:
+              type: boolean
+            marketing:
+              type: boolean
+        rights:
+          type: object
+          description: Descripción de derechos GDPR
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+        - message
+        - timestamp
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Código de error estandarizado
+        message:
+          type: string
+          description: Mensaje descriptivo
+        code:
+          type: string
+          description: Código adicional específico
+        timestamp:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+          format: uuid
+
+  responses:
+    ValidationError:
+      description: Error de validación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing_param:
+              value:
+                success: false
+                error: "VALIDATION_ERROR"
+                message: "El parámetro 'query' es requerido"
+                timestamp: "2024-01-15T10:30:00.000Z"
+            xss_detected:
+              value:
+                success: false
+                error: "SECURITY_XSS_DETECTED"
+                message: "Intento de XSS detectado en la consulta"
+                code: "SECURITY_XSS_DETECTED"
+                timestamp: "2024-01-15T10:30:00.000Z"
+            sql_injection:
+              value:
+                success: false
+                error: "SECURITY_SQL_INJECTION_DETECTED"
+                message: "Intento de inyección SQL detectado"
+                timestamp: "2024-01-15T10:30:00.000Z"
+
+    Unauthorized:
+      description: No autorizado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "Authentication required"
+            message: "Please provide a valid API key in X-API-Key header"
+            timestamp: "2024-01-15T10:30:00.000Z"
+
+    Forbidden:
+      description: Acceso denegado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "Forbidden"
+            message: "Admin access required"
+            timestamp: "2024-01-15T10:30:00.000Z"
+
+    RateLimitExceeded:
+      description: Límite de peticiones excedido
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "RATE_LIMIT_EXCEEDED"
+            message: "Límite de peticiones excedido. Intenta nuevamente en 60 segundos"
+            timestamp: "2024-01-15T10:30:00.000Z"
+
+    InternalError:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: "INTERNAL_ERROR"
+            message: "Error interno del servidor"
+            timestamp: "2024-01-15T10:30:00.000Z"
