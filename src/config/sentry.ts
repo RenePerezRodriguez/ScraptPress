@@ -4,7 +4,7 @@
  */
 
 import * as Sentry from '@sentry/node';
-import { nodeProfilingIntegration } from '@sentry/profiling-node';
+// import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { Express, Request, Response, NextFunction } from 'express';
 import { Logger } from './logger';
 
@@ -39,8 +39,10 @@ export class SentryService {
         tracesSampleRate: environment === 'production' ? 0.1 : 1.0, // 10% in prod, 100% in dev
 
         // Profiling
-        profilesSampleRate: environment === 'production' ? 0.1 : 1.0,
-        integrations: [nodeProfilingIntegration()],
+        // profilesSampleRate: environment === 'production' ? 0.1 : 1.0,
+        integrations: [
+          // nodeProfilingIntegration()
+        ],
 
         // Release tracking
         release: process.env.npm_package_version,
