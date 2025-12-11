@@ -1,3 +1,4 @@
+console.log('🚀 INITIALIZING APPLICATION - STARTING NODE PROCESS');
 import 'dotenv/config'; // Load environment variables first
 import express from 'express';
 import path from 'path';
