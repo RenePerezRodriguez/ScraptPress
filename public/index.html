@@ -1,36 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+
     <!-- SEO Meta Tags -->
     <title>ScraptPress | Enterprise Web Scraping & Data Extraction API</title>
-    <meta name="description" content="Production-ready scraping solution for high-scale businesses. Reliable, fast, and secure data extraction API for automotive and general-purpose needs. Powered by SafeSoft.">
-    <meta name="keywords" content="Enterprise Web Scraping, Data Extraction API, Automotive Data, Copart API, Reliable Scraping, Custom Scraping Solutions, B2B Data Services">
+    <meta name="description"
+        content="Production-ready scraping solution for high-scale businesses. Reliable, fast, and secure data extraction API for automotive and general-purpose needs. Powered by SafeSoft.">
+    <meta name="keywords"
+        content="Enterprise Web Scraping, Data Extraction API, Automotive Data, Copart API, Reliable Scraping, Custom Scraping Solutions, B2B Data Services">
     <meta name="author" content="SafeSoft Technologies">
-    
+
+    <!-- Language Alternates -->
+    <link rel="alternate" hreflang="en" href="https://scrap.sumtrading.us/" />
+    <link rel="alternate" hreflang="es" href="https://scrap.sumtrading.us/?lang=es" />
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://scrap.sumtrading.us/">
     <meta property="og:title" content="ScraptPress - Enterprise Data Extraction API">
-    <meta property="og:description" content="Reliable, high-speed data extraction infrastructure. Turn any website into a structured API. Trusted by industry leaders.">
+    <meta property="og:description"
+        content="Reliable, high-speed data extraction infrastructure. Turn any website into a structured API. Trusted by industry leaders.">
     <meta property="og:image" content="https://scrap.sumtrading.us/assets/og-image.png">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://scrap.sumtrading.us/">
     <meta property="twitter:title" content="ScraptPress - Enterprise Data Extraction API">
-    <meta property="twitter:description" content="Reliable, high-speed data extraction infrastructure. Turn any website into a structured API. Trusted by industry leaders.">
+    <meta property="twitter:description"
+        content="Reliable, high-speed data extraction infrastructure. Turn any website into a structured API. Trusted by industry leaders.">
     <meta property="twitter:image" content="https://scrap.sumtrading.us/assets/og-image.png">
 
-    <!-- Favicon (placeholder base64 for now) -->
-    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=">
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/assets/logo.png">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
 
     <!-- Schema.org Markup -->
     <script type="application/ld+json">
@@ -49,7 +60,8 @@
       "author": {
         "@type": "Organization",
         "name": "SafeSoft Technologies",
-        "url": "https://safesoft.tech"
+        "url": "https://safesoft.tech",
+        "logo": "https://scrap.sumtrading.us/assets/logo.png"
       }
     }
     </script>
@@ -61,19 +73,24 @@
             --bg-card-hover: #1C1C1E;
             --text-primary: #F2F2F2;
             --text-secondary: #A1A1A6;
-            --accent-primary: #6366F1; /* Indigo 500 */
+            --accent-primary: #6366F1;
+            /* Indigo 500 */
             --accent-glow: rgba(99, 102, 241, 0.5);
             --border-subtle: #27272A;
             --gradient-1: linear-gradient(135deg, #6366F1 0%, #A855F7 100%);
-            
+
             /* Typography */
             --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
         }
 
         /* Reset & Base */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             background-color: var(--bg-dark);
             color: var(--text-primary);
@@ -89,7 +106,7 @@
             margin: 0 auto;
             padding: 0 24px;
         }
-        
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -101,13 +118,14 @@
             text-decoration: none;
             cursor: pointer;
             border: 1px solid transparent;
+            gap: 8px;
         }
 
         .btn-primary {
             background: var(--text-primary);
             color: var(--bg-dark);
         }
-        
+
         .btn-primary:hover {
             background: #ffffff;
             transform: translateY(-1px);
@@ -132,7 +150,7 @@
         }
 
         /* Layout Sections */
-        
+
         /* Navbar */
         nav {
             padding: 20px 0;
@@ -150,18 +168,34 @@
             align-items: center;
         }
 
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
         .logo {
             font-weight: 700;
             font-size: 1.25rem;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
-        .logo-icon {
-            width: 24px;
-            height: 24px;
-            background: var(--gradient-1);
+        .logo img {
+            width: 32px;
+            height: 32px;
             border-radius: 6px;
         }
 
@@ -169,10 +203,15 @@
             font-size: 0.9rem;
             color: var(--text-secondary);
             cursor: pointer;
-            margin-right: 20px;
+            padding: 4px 8px;
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
         }
-        
-        .lang-switch:hover { color: var(--text-primary); }
+
+        .lang-switch:hover {
+            color: var(--text-primary);
+            border-color: var(--text-secondary);
+        }
 
         /* Hero */
         .hero {
@@ -214,11 +253,11 @@
             font-size: 0.9rem;
             max-width: 800px;
             margin: 0 auto;
-            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
             position: relative;
             overflow: hidden;
         }
-        
+
         .code-window::before {
             content: '';
             position: absolute;
@@ -234,11 +273,25 @@
             margin-bottom: 4px;
         }
 
-        .c-comment { color: #5C5C60; }
-        .c-keyword { color: #C792EA; }
-        .c-function { color: #82AAFF; }
-        .c-string { color: #C3E88D; }
-        .c-number { color: #F78C6C; }
+        .c-comment {
+            color: #5C5C60;
+        }
+
+        .c-keyword {
+            color: #C792EA;
+        }
+
+        .c-function {
+            color: #82AAFF;
+        }
+
+        .c-string {
+            color: #C3E88D;
+        }
+
+        .c-number {
+            color: #F78C6C;
+        }
 
         /* Features */
         .features {
@@ -249,7 +302,7 @@
             text-align: center;
             margin-bottom: 60px;
         }
-        
+
         .label {
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -282,7 +335,7 @@
         .icon-box {
             width: 48px;
             height: 48px;
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -306,14 +359,29 @@
             padding: 80px 0;
             border-top: 1px solid var(--border-subtle);
             border-bottom: 1px solid var(--border-subtle);
-            background: rgba(255,255,255,0.01);
+            background: rgba(255, 255, 255, 0.01);
+            text-align: center;
         }
 
-        .client-logo {
-            font-weight: 700;
-            font-size: 1.5rem;
+        .client-logos {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 60px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .client-logo-img {
+            height: 50px;
             opacity: 0.8;
-            letter-spacing: -0.02em;
+            transition: opacity 0.2s;
+            filter: grayscale(100%) brightness(1.2);
+        }
+
+        .client-logo-img:hover {
+            opacity: 1;
+            filter: none;
         }
 
         /* CTA */
@@ -325,46 +393,95 @@
 
         /* Footer */
         footer {
-            padding: 60px 0;
+            padding: 80px 0 40px;
             border-top: 1px solid var(--border-subtle);
             color: var(--text-secondary);
             font-size: 0.9rem;
         }
 
-        .footer-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        .footer h4 {
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .footer ul {
+            list-style: none;
+        }
+
+        .footer li {
+            margin-bottom: 12px;
+        }
+
+        .footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer a:hover {
+            color: var(--text-primary);
         }
 
         .contact-email {
             color: var(--text-primary);
             text-decoration: none;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
             padding-bottom: 2px;
             transition: border-color 0.2s;
         }
-        
-        .contact-email:hover { border-color: var(--text-primary); }
+
+        .contact-email:hover {
+            border-color: var(--text-primary);
+        }
 
         /* Responsive */
         @media (max-width: 768px) {
-            .hero h1 { font-size: 2.5rem; }
-            .hero-actions { flex-direction: column; }
-            .nav-content { flex-direction: column; gap: 20px; }
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+            }
+
+            .nav-content {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .nav-links {
+                flex-direction: column;
+                gap: 16px;
+            }
         }
     </style>
 </head>
+
 <body>
-    
+
     <!-- Navbar -->
     <nav>
         <div class="container nav-content">
             <div class="logo">
-                <div class="logo-icon"></div>
+                <img src="/assets/logo.png" alt="ScraptPress Logo">
                 ScraptPress
             </div>
-            <div>
+            <div class="nav-links">
+                <a href="https://github.com/RenePerezRodriguez/ScraptPress" class="nav-link"
+                    target="_blank">Documentation</a>
+                <a href="https://github.com/RenePerezRodriguez/ScraptPress" class="nav-link" target="_blank">GitHub</a>
                 <span class="lang-switch" onclick="toggleLang()">ES / EN</span>
                 <a href="mailto:info@safesoft.tech" class="btn btn-primary">Contact Sales</a>
             </div>
@@ -374,38 +491,45 @@
     <!-- Hero -->
     <section class="hero">
         <div class="container">
-            <h1 id="hero-title">Reliable Data Infrastructure<br>for <span class="gradient-text">High-Scale Business</span></h1>
-            <p id="hero-subtitle">Turn complex websites into structured APIs. Engineered for reliability, speed, and zero maintenance. The engine behind SumTrading.</p>
-            
+            <h1 id="hero-title">Reliable Data Infrastructure<br>for <span class="gradient-text">High-Scale
+                    Business</span></h1>
+            <p id="hero-subtitle">Turn complex websites into structured APIs. Engineered for reliability, speed, and
+                zero maintenance. The engine behind SumTrading.</p>
+
             <div class="hero-actions">
                 <a href="mailto:info@safesoft.tech" class="btn btn-primary" id="btn-demo">Schedule Demo</a>
-                <a href="#features" class="btn btn-outline" id="btn-explore">Explore Platform</a>
+                <a href="https://github.com/RenePerezRodriguez/ScraptPress" target="_blank" class="btn btn-outline"
+                    id="btn-explore">Read Documentation</a>
             </div>
 
             <!-- Visual Code Block -->
             <div class="code-window">
                 <span class="code-line c-comment">// ⚡ Enterprise-grade data extraction in milliseconds</span>
-                <span class="code-line"><span class="c-keyword">const</span> vehicle <span class="c-keyword">=</span> <span class="c-keyword">await</span> scraptpress.<span class="c-function">extract</span>({</span>
+                <span class="code-line"><span class="c-keyword">const</span> vehicle <span class="c-keyword">=</span>
+                    <span class="c-keyword">await</span> scraptpress.<span class="c-function">extract</span>({</span>
                 <span class="code-line">&nbsp;&nbsp;source: <span class="c-string">'copart'</span>,</span>
                 <span class="code-line">&nbsp;&nbsp;query: <span class="c-string">'toyota camry 2024'</span>,</span>
                 <span class="code-line">&nbsp;&nbsp;priority: <span class="c-string">'high'</span></span>
                 <span class="code-line">});</span>
                 <br>
                 <span class="code-line"><span class="c-comment">// Returns structured, validated JSON</span></span>
-                <span class="code-line">console.<span class="c-function">log</span>(vehicle.data.current_bid); <span class="c-comment">// -> $12,500</span></span>
+                <span class="code-line">console.<span class="c-function">log</span>(vehicle.data.current_bid); <span
+                        class="c-comment">// -> $12,500</span></span>
             </div>
         </div>
     </section>
 
     <!-- Social Proof -->
     <section class="showcase">
-        <div class="container" style="text-align: center;">
-            <span class="label" style="color: var(--text-secondary); margin-bottom: 20px;">TRUSTED PRODUCTION INFRASTRUCTURE</span>
-            <div style="display: flex; justify-content: center; align-items: center; gap: 40px; margin-top: 20px;">
-                <div class="client-logo">SUM Trading</div>
-                <!-- Add more client placeholders if needed style="opacity: 0.5" -->
+        <div class="container">
+            <span class="label" style="color: var(--text-secondary); margin-bottom: 20px;">TRUSTED PRODUCTION
+                INFRASTRUCTURE</span>
+            <div class="client-logos">
+                <a href="https://sumtrading.us" target="_blank" title="Visit SUM Trading">
+                    <img src="/assets/sumtrading.webp" alt="SUM Trading" class="client-logo-img">
+                </a>
             </div>
-            <p style="margin-top: 15px; font-size: 0.9rem; color: var(--text-secondary);" id="showcase-text">
+            <p style="margin-top: 25px; font-size: 0.9rem; color: var(--text-secondary);" id="showcase-text">
                 Handling thousands of daily queries for automotive inventory.
             </p>
         </div>
@@ -416,25 +540,30 @@
         <div class="container">
             <div class="section-header">
                 <span class="label">WHY SAFE SOFT</span>
-                <h2 style="font-size: 2.5rem; margin-bottom: 16px;" id="features-title">Designed for Mission-Critical Data</h2>
-                <p style="color: var(--text-secondary); max-width: 600px; margin: 0 auto;" id="features-subtitle">Stop fighting anti-bot systems. Focus on your product while we handle the extraction pipeline.</p>
+                <h2 style="font-size: 2.5rem; margin-bottom: 16px;" id="features-title">Designed for Mission-Critical
+                    Data</h2>
+                <p style="color: var(--text-secondary); max-width: 600px; margin: 0 auto;" id="features-subtitle">Stop
+                    fighting anti-bot systems. Focus on your product while we handle the extraction pipeline.</p>
             </div>
 
             <div class="grid">
                 <div class="card">
                     <div class="icon-box">⚡</div>
                     <h3 id="f1-title">Unmatched Velocity</h3>
-                    <p id="f1-desc">Direct traffic interception technology bypasses traditional slow rendering. Get data in milliseconds, not seconds.</p>
+                    <p id="f1-desc">Direct traffic interception technology bypasses traditional slow rendering. Get data
+                        in milliseconds, not seconds.</p>
                 </div>
                 <div class="card">
                     <div class="icon-box">🛡️</div>
                     <h3 id="f2-title">Enterprise Reliability</h3>
-                    <p id="f2-desc">99.9% Uptime SLA. Auto-healing scrapers that adapt to website layout changes instantly without breaking your pipeline.</p>
+                    <p id="f2-desc">99.9% Uptime SLA. Auto-healing scrapers that adapt to website layout changes
+                        instantly without breaking your pipeline.</p>
                 </div>
                 <div class="card">
                     <div class="icon-box">🔄</div>
                     <h3 id="f3-title">Smart Caching Layer</h3>
-                    <p id="f3-desc">Hybrid Redis + Firestore architecture ensures instant responses for frequent queries and historical data persistence.</p>
+                    <p id="f3-desc">Hybrid Redis + Firestore architecture ensures instant responses for frequent queries
+                        and historical data persistence.</p>
                 </div>
             </div>
         </div>
@@ -444,22 +573,47 @@
     <section class="cta-section">
         <div class="container">
             <h2 style="font-size: 3rem; margin-bottom: 24px;" id="cta-title">Ready to scale your data operations?</h2>
-            <p style="color: var(--text-secondary); font-size: 1.25rem; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto;" id="cta-desc">
+            <p style="color: var(--text-secondary); font-size: 1.25rem; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto;"
+                id="cta-desc">
                 Join the businesses building their infrastructure on SafeSoft solutions.
             </p>
-            <a href="mailto:info@safesoft.tech" class="btn btn-primary" style="padding: 16px 32px; font-size: 1.1rem;" id="cta-btn">Talk to an Expert</a>
+            <a href="mailto:info@safesoft.tech" class="btn btn-primary" style="padding: 16px 32px; font-size: 1.1rem;"
+                id="cta-btn">Talk to an Expert</a>
         </div>
     </section>
 
     <!-- Footer -->
     <footer>
         <div class="container footer-content">
-            <div>
-                <strong style="color: var(--text-primary);">SafeSoft Technologies</strong>
-                <div style="margin-top: 8px;">Premium Data Solutions</div>
+            <div class="footer-grid" style="width: 100%; margin-bottom: 0;">
+                <div>
+                    <div class="logo" style="margin-bottom: 16px;">
+                        <img src="/assets/logo.png" alt="Logo" style="width: 24px; height: 24px;">
+                        SafeSoft Technologies
+                    </div>
+                    <p style="color: var(--text-secondary);">Premium Data Solutions & Automation Infrastructure.</p>
+                </div>
+                <div>
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://github.com/RenePerezRodriguez/ScraptPress"
+                                target="_blank">Documentation</a></li>
+                        <li><a href="https://github.com/RenePerezRodriguez/ScraptPress" target="_blank">API
+                                Reference</a></li>
+                        <li><a href="https://github.com/RenePerezRodriguez/ScraptPress" target="_blank">GitHub</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Contact</h4>
+                    <ul>
+                        <li><a href="mailto:info@safesoft.tech">info@safesoft.tech</a></li>
+                        <li><a href="https://sumtrading.us" target="_blank">SUM Trading Showcase</a></li>
+                    </ul>
+                </div>
             </div>
-            <div>
-                Contact: <a href="mailto:info@safesoft.tech" class="contact-email">info@safesoft.tech</a>
+            <div
+                style="border-top: 1px solid var(--border-subtle); padding-top: 30px; text-align: center; width: 100%;">
+                &copy; 2024 SafeSoft Technologies. All rights reserved.
             </div>
         </div>
     </footer>
@@ -467,13 +621,13 @@
     <!-- Localization Script -->
     <script>
         let currentLang = 'en';
-        
+
         const translations = {
             en: {
                 heroTitle: 'Reliable Data Infrastructure<br>for <span class="gradient-text">High-Scale Business</span>',
                 heroSubtitle: 'Turn complex websites into structured APIs. Engineered for reliability, speed, and zero maintenance. The engine behind SumTrading.',
                 btnDemo: 'Schedule Demo',
-                btnExplore: 'Explore Platform',
+                btnExplore: 'Read Documentation',
                 featuresTitle: 'Designed for Mission-Critical Data',
                 featuresSubtitle: 'Stop fighting anti-bot systems. Focus on your product while we handle the extraction pipeline.',
                 f1Title: 'Unmatched Velocity',
@@ -491,7 +645,7 @@
                 heroTitle: 'Infraestructura de Datos<br>para <span class="gradient-text">Negocios a Escala</span>',
                 heroSubtitle: 'Convierte webs complejas en APIs estructuradas. Diseñado para fiabilidad, velocidad y cero mantenimiento. El motor detrás de SumTrading.',
                 btnDemo: 'Agendar Demo',
-                btnExplore: 'Explorar Plataforma',
+                btnExplore: 'Leer Documentación',
                 featuresTitle: 'Diseñado para Datos Críticos',
                 featuresSubtitle: 'Deja de pelear con sistemas anti-bot. Enfócate en tu producto mientras nosotros manejamos la extracción.',
                 f1Title: 'Velocidad Inigualable',
@@ -503,28 +657,28 @@
                 ctaTitle: '¿Listo para escalar tus operaciones?',
                 ctaDesc: 'Únete a las empresas que construyen su infraestructura con soluciones SafeSoft.',
                 ctaBtn: 'Hablar con un Experto',
-                showcaseText: 'Manejando miles de consultas diarias de inventario automotriz.'
+                showcaseText: 'Manejo de miles de consultas diarias de inventario automotriz.'
             }
         };
 
         function toggleLang() {
             currentLang = currentLang === 'en' ? 'es' : 'en';
             const t = translations[currentLang];
-            
+
             document.getElementById('hero-title').innerHTML = t.heroTitle;
             document.getElementById('hero-subtitle').textContent = t.heroSubtitle;
             document.getElementById('btn-demo').textContent = t.btnDemo;
             document.getElementById('btn-explore').textContent = t.btnExplore;
             document.getElementById('features-title').textContent = t.featuresTitle;
             document.getElementById('features-subtitle').textContent = t.featuresSubtitle;
-            
+
             document.getElementById('f1-title').textContent = t.f1Title;
             document.getElementById('f1-desc').textContent = t.f1Desc;
             document.getElementById('f2-title').textContent = t.f2Title;
             document.getElementById('f2-desc').textContent = t.f2Desc;
             document.getElementById('f3-title').textContent = t.f3Title;
             document.getElementById('f3-desc').textContent = t.f3Desc;
-            
+
             document.getElementById('cta-title').textContent = t.ctaTitle;
             document.getElementById('cta-desc').textContent = t.ctaDesc;
             document.getElementById('cta-btn').textContent = t.ctaBtn;
@@ -537,4 +691,5 @@
         }
     </script>
 </body>
+
 </html>
