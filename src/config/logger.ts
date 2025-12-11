@@ -26,17 +26,26 @@ interface LogEntry {
  */
 export class Logger {
   private static instance: Logger;
-  private logDir: string;
+  private logDir: string | null = null;
   private isDev: boolean;
   private currentRequestId?: string; // Track current request ID
 
   private constructor() {
     this.isDev = process.env.NODE_ENV !== 'production';
-    this.logDir = path.join(process.cwd(), 'logs');
 
-    // Crear directorio de logs si no existe
-    if (!fs.existsSync(this.logDir)) {
-      fs.mkdirSync(this.logDir, { recursive: true });
+    // Only write to files in development or if explicitly enabled
+    if (this.isDev || process.env.LOG_TO_FILE === 'true') {
+      this.logDir = path.join(process.cwd(), 'logs');
+
+      // Crear directorio de logs si no existe
+      try {
+        if (!fs.existsSync(this.logDir)) {
+          fs.mkdirSync(this.logDir, { recursive: true });
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not create logs directory, file logging disabled:', error);
+        this.logDir = null;
+      }
     }
   }
 
@@ -77,6 +86,8 @@ export class Logger {
   }
 
   private writeToFile(entry: LogEntry): void {
+    if (!this.logDir) return;
+
     const logFile = path.join(this.logDir, `${entry.level.toLowerCase()}.log`);
     const allLogsFile = path.join(this.logDir, 'all.log');
     const logLine = JSON.stringify(entry) + '\n';
