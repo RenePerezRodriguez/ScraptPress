@@ -33,12 +33,12 @@ spec:
             secretKeyRef:
               name: FIREBASE_SERVICE_ACCOUNT_JSON
               key: latest
-        - name: SCRAPTPRESS_API_KEY
+        - name: API_KEY
           valueFrom:
             secretKeyRef:
               name: SCRAPTPRESS_API_KEY
               key: latest
-        - name: SCRAPTPRESS_ADMIN_TOKEN
+        - name: ADMIN_TOKEN
           valueFrom:
             secretKeyRef:
               name: SCRAPTPRESS_ADMIN_TOKEN
