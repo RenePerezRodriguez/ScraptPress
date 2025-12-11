@@ -1,0 +1,50 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: scraptpress
+spec:
+  template:
+    spec:
+      containers:
+      - image: us-central1-docker.pkg.dev/studio-6719476275-3891a/cloud-run-source-deploy/scraptpress/scraptpress:7a2ec73f932ad7b058da74e9ca1004f9ac6f06b6
+        env:
+        - name: REDIS_URL
+          value: "redis://default:0hqBduszfpJyWC7K1jd8p5MfELWII3HS@redis-11087.c228.us-central1-1.gce.cloud.redislabs.com:11087"
+        - name: PORT
+          value: "8080"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: NODE_ENV
+          value: "production"
+        - name: HEADLESS
+          value: "true"
+        - name: BROWSER_TIMEOUT
+          value: "60000"
+        - name: DEFAULT_LIMIT
+          value: "10"
+        - name: TIMEOUT_MINUTES
+          value: "15"
+        - name: LOCK_TIMEOUT_MINUTES
+          value: "15"
+        - name: ALLOWED_ORIGINS
+          value: "https://sumtrading.us,https://www.sumtrading.us"
+        - name: FIREBASE_SERVICE_ACCOUNT_JSON
+          valueFrom:
+            secretKeyRef:
+              name: FIREBASE_SERVICE_ACCOUNT_JSON
+              key: latest
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: SCRAPTPRESS_API_KEY
+              key: latest
+        - name: ADMIN_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: SCRAPTPRESS_ADMIN_TOKEN
+              key: latest
+        - name: SENTRY_DSN
+          valueFrom:
+            secretKeyRef:
+              name: sentry-dsn
+              key: latest
