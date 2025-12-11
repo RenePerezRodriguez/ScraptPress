@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2025-12-10
+
+### 🔧 Cloud Run Deployment Fixes
+
+Hotfix crítico para solucionar problemas de despliegue en Google Cloud Run.
+
+### Fixed
+- **🚀 Startup Crash (EACCES)**: Solucionado error de permisos al intentar escribir logs en disco (`/app/logs`). Ahora usa solo `stdout` en producción.
+- **⚡ Native Modules**: Deshabilitado temporalmente `Sentry Profiling` debido a conflictos con módulos nativos en el entorno runtime.
+- **🛡️ Environment Variables**: Corregida discrepancia en nombres de variables (`API_KEY` vs `SCRAPTPRESS_API_KEY`).
+- **💓 Health Check**: Actualizada ruta de health check en Dockerfile (`/health` en lugar de `/api/health`).
+- **🔥 Firebase Init**: Mejorado manejo de errores en inicialización de Firebase (ahora es opcional y resiliente).
+
 ## [3.2.0] - 2025-12-10
 
 ### 🚀 MAJOR RELEASE - API Interception & Hybrid Caching

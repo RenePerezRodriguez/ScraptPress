@@ -41,16 +41,21 @@ npm start  # Verificar localmente
 gcloud run deploy scraptpress \
   --source . \
   --region us-central1 \
+  --project studio-6719476275-3891a \
   --min-instances 0 \
   --max-instances 10 \
   --memory 2Gi \
   --cpu 2 \
   --timeout 300 \
-  --set-env-vars "NODE_ENV=production,HEADLESS=true" \
-  --update-secrets "API_KEY=api-key:latest" \
-  --update-secrets "REDIS_URL=redis-url:latest" \
-  --update-secrets "/secrets/firebase.json=firebase-service-account:latest"
+  --set-env-vars "NODE_ENV=production,HEADLESS=true,LOG_TO_FILE=false" \
+  --update-secrets "API_KEY=SCRAPTPRESS_API_KEY:latest" \
+  --update-secrets "ADMIN_TOKEN=SCRAPTPRESS_ADMIN_TOKEN:latest" \
+  --update-secrets "FIREBASE_SERVICE_ACCOUNT_JSON=FIREBASE_SERVICE_ACCOUNT_JSON:latest" \
+  --allow-unauthenticated
 ```
+
+> **Nota**: `LOG_TO_FILE=false` es crítico para evitar errores de permisos, ya que Cloud Run tiene sistema de archivos de solo lectura (excepto /tmp).
+
 
 ---
 

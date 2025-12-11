@@ -2,7 +2,7 @@
 
 > **API REST profesional con Smart API Interception, Cacheo Híbrido (Redis+Firestore), y Sincronización en Tiempo Real**
 
-[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](./CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-3.2.1-blue.svg)](./CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-ISC-green.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-20+-brightgreen.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/typescript-5.9-blue.svg)](https://www.typescriptlang.org)
