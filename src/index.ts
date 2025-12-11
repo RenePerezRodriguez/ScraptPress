@@ -37,9 +37,11 @@ if (!securityValidation.valid && securityConfig.isProduction()) {
 // Initialize Firebase Firestore (shared database with SUM-Trading)
 try {
   initializeFirebase();
+  logger.info('✅ Firebase initialized successfully');
 } catch (error) {
   logger.warn('⚠️ Failed to initialize Firebase (running in limited mode):', error);
-  // Do not exit in development
+  logger.warn('⚠️ Application will continue without Firebase/Firestore functionality');
+  // Do not exit - allow app to run without Firebase
 }
 
 // Initialize Sentry for error tracking (must be before other middleware)

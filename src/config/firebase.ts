@@ -27,9 +27,14 @@ export const initializeFirebase = (): admin.firestore.Firestore => {
 
     // Option 1: JSON string in environment variable (for Cloud Run)
     if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-      credential = admin.credential.cert(serviceAccount);
-      logger.info('🔥 Using Firebase credentials from FIREBASE_SERVICE_ACCOUNT_JSON');
+      try {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+        credential = admin.credential.cert(serviceAccount);
+        logger.info('🔥 Using Firebase credentials from FIREBASE_SERVICE_ACCOUNT_JSON');
+      } catch (parseError) {
+        logger.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:', parseError);
+        throw new Error('Invalid Firebase service account JSON format');
+      }
     }
     // Option 2: Path to JSON file (for local development)
     else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
