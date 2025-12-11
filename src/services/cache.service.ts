@@ -32,28 +32,33 @@ export class CacheService {
     }
 
     try {
-      const redisHost = process.env.REDIS_HOST || 'localhost';
-      const redisPort = parseInt(process.env.REDIS_PORT || '6379');
-      const redisUsername = process.env.REDIS_USERNAME;
-      const redisPassword = process.env.REDIS_PASSWORD;
-      const redisTls = process.env.REDIS_TLS === 'true';
+      const redisUrl = process.env.REDIS_URL;
 
-      logger.info(`Connecting to Redis at ${redisHost}:${redisPort} (TLS: ${redisTls})`);
+      if (redisUrl) {
+        // Use Redis URL directly (supports redis:// and rediss:// for TLS)
+        logger.info(`Connecting to Redis via URL`);
 
-      this.client = createClient({
-        username: redisUsername || undefined,
-        password: redisPassword || undefined,
-        socket: redisTls
-          ? {
-            host: redisHost,
-            port: redisPort,
-            tls: true,
-          }
-          : {
+        this.client = createClient({
+          url: redisUrl,
+        });
+      } else {
+        // Fallback to manual configuration
+        const redisHost = process.env.REDIS_HOST || 'localhost';
+        const redisPort = parseInt(process.env.REDIS_PORT || '6379');
+        const redisUsername = process.env.REDIS_USERNAME;
+        const redisPassword = process.env.REDIS_PASSWORD;
+
+        logger.info(`Connecting to Redis at ${redisHost}:${redisPort}`);
+
+        this.client = createClient({
+          username: redisUsername || undefined,
+          password: redisPassword || undefined,
+          socket: {
             host: redisHost,
             port: redisPort,
           },
-      });
+        });
+      }
 
       this.client.on('error', (err) => {
         logger.error('Redis client error:', err);
